@@ -5,7 +5,10 @@
    ============================================================ */
 
 /* ---- APP SHELL ---- */
-.app { display: flex; min-height: 100vh; position: relative; z-index: 1; }
+/* z-index は付けない: 付けると .app が stacking context になり、内側の .sidebar(z-index:50)
+   がドロワー時に外側の .scrim(z-index:40) より下へ沈む（黒レイヤー被りの原因）。
+   背景(liquid-bg/veil)は負の z-index なので、.app は z-index 無し(auto)でも前面に出る。 */
+.app { display: flex; min-height: 100svh; position: relative; }
 
 /* ---- Sidebar (liquid glass rail) ---- */
 .sidebar {
@@ -313,10 +316,13 @@
    ============================================================ */
 
 /* --- 高さの器（JS 有効時のみ 1 画面に閉じる） --- */
-/* JS 有効時は main をビューポート高に固定し、内部の stepframe で 1 ステップを収める。 */
-html.js .main { height: 100dvh; }
-/* dvh 非対応の保険（古い実装）: vh で近似（dvh が効く環境では上書きされる） */
-@supports not (height: 100dvh) {
+/* JS 有効時は main をビューポート高に固定し、内部の stepframe で 1 ステップを収める。
+   高さは 100svh（small viewport height）にする: iOS Safari の dvh はアドレスバーが
+   隠れた時の大きい高さで、表示中は画面からはみ出して下端の StepNav/フッターが切れたり
+   中段に浮いたりする。svh は「アドレスバー表示時の安全な高さ」で常に画面内に収まる。 */
+html.js .main { height: 100svh; }
+/* svh 非対応の保険（古い実装）: vh で近似（svh が効く環境では上書きされる） */
+@supports not (height: 100svh) {
   html.js .main { height: 100vh; }
 }
 
