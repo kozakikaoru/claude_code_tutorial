@@ -1,0 +1,123 @@
+---
+title: ショートカットと入力テク
+part: beginner
+order: 6
+level: 初級
+summary: 操作を速くする最小セットだけ覚えます。中断・クリア・補完・履歴といったキー操作に加え、@ でファイルを文脈に入れる・# で覚えさせるという二つの入力テクを身につけ、毎回の往復を軽くします。
+readingTime: 7
+updated: 2026-06-27
+---
+
+ここまでで、起動して頼んで、まずければ戻す——という一周ができるようになりました。この章のゴールは、その一周を **速くする** ことです。覚えるのは少数のキー操作と、二つの入力テクだけ。指が勝手に動くようになると、Claude Code との往復がぐっと軽くなります。
+
+主役は **ターミナル版** のキーボードショートカットです。デスクトップアプリ版にも対応する操作はあるので、各所で対で示します。右上のトグルで自分の環境を選んでから読み進めてください。
+
+## §1 まず覚える早見表
+
+最初に手が届く範囲だけ、表にまとめました。全部を一度に覚える必要はありません。**中断の `Esc`** と **補完の `Tab`**、この二つから始めれば十分です。
+
+| キー操作 | 用途 |
+| --- | --- |
+| `Esc` | 実行中の処理を中断する(止めたいときの第一手) |
+| `Esc` `Esc` | プロンプト履歴をさかのぼる・直前の変更を巻き戻す |
+| `Ctrl+C` ×2 | セッションそのものを終了する |
+| `Ctrl+L` | 画面表示をクリアする(会話の履歴は保持される) |
+| `Tab` | ファイル名やコマンドを補完する |
+| `↑` `↓` | 過去に打った入力を呼び出す |
+| `Shift+Enter` | 送信せずに改行する(長い指示を整える) |
+
+<ModeBlock mode="terminal">
+### ターミナルでは、これが中心
+
+ターミナル版では、これらのキー操作が日々の主役です。とくに `Esc` は覚えておくと安心できます。エージェントが想定と違う方向に進み始めたとき、`Esc` 一回でいったん止め、指示を出し直せるからです。
+
+<Callout>
+  <b>迷ったら `Esc`、終わるなら `Ctrl+C` を 2 回。</b> 「処理を止めたい」のと「セッションを閉じたい」は別物です。作業の途中で止めて続けたいなら `Esc`、その日の作業をまるごと終えるなら `Ctrl+C` を 2 回——と使い分けると混乱しません。
+</Callout>
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+### デスクトップでは、ボタンに対応物がある
+
+デスクトップアプリ版では、これらのキー操作の多くが画面上のボタンやメニューに置き換わっています。実行中の処理を止めるのは停止ボタン、入力欄での改行は通常どおり `Shift+Enter` が使えます。キーを暗記しなくても、画面を見れば操作にたどり着けるのがアプリ版の気楽なところです。
+
+<Callout>
+  <b>キーが思い出せなくても大丈夫。</b> デスクトップ版は操作が画面に見えています。「止める」「やり直す」といった操作は、対応するボタンを探せば見つかります。まずは中断と巻き戻しの場所だけ把握しておきましょう。
+</Callout>
+</ModeBlock>
+
+`Esc` を 2 回押す操作は、入力履歴をさかのぼるだけでなく、**直前の変更を巻き戻す入口** にもなっています。これは次章で扱う <Term id="rewind">巻き戻し</Term> に直結する大切な操作なので、ここでは「`Esc` `Esc` で戻れる」とだけ頭の片隅に置いておいてください。
+
+## §2 入力テクその1 — @ でファイルを文脈に入れる
+
+ここからは、ショートカットより少し丁寧に、二つの入力テクを紹介します。どちらも一度知ると手放せなくなるものです。
+
+一つめは <Term id="at-mention">@メンション</Term> です。指示文のなかで `@` に続けてファイル名を書くと、**そのファイルを会話の文脈に投入** できます。「このあたりを読んでね」とエージェントに手渡すイメージです。どのファイルを見てほしいかが曖昧だと、エージェントは探すところから始めてしまいます。最初から名指しすれば、その手間が省けて結果も安定します。
+
+<ModeBlock mode="terminal">
+ターミナル版では、入力中に `@` を打つと候補が出てきます。途中まで打って `Tab` で補完すると、長いパスも素早く指定できます。
+
+<CodeBlock title="zsh — claude" badge="入力テク">
+<span class="line"><span class="sx-com"># @ でファイルを名指しして文脈に入れる</span></span>
+<span class="line"><span class="prompt cy">&gt;</span> <span class="sx-str">@src/auth.ts</span> <span class="sx-str">のログイン処理を読んで、バグがないか確認して</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">  ⎿ </span><span class="sx-fn">read</span> <span class="sx-flag">src/auth.ts</span> <span class="sx-dim">(88 行)</span></span>
+<span class="line"><span class="prompt cy">&gt;</span> <span class="caret" aria-hidden="true"></span></span>
+</CodeBlock>
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+デスクトップアプリ版でも、チャット欄で `@` を打てば同じようにファイルを指定できます。それに加えて、サイドの <Term id="file-tree">ファイルツリー</Term> からファイルを選んで文脈に加えることもできます。`@` を打つのとツリーからクリックするのは、どちらも「このファイルを見て」と伝える同じ操作です。やりやすいほうを使ってください。
+
+<CodeBlock title="セッションログ" badge="入力テク">
+<span class="line"><span class="sx-com"># @ でもファイルツリーからでも、ファイルを文脈に入れられる</span></span>
+<span class="line"><span class="prompt cy">あなた</span>  <span class="sx-str">@src/auth.ts のログイン処理を読んで、バグがないか確認して</span></span>
+<span class="line"> </span>
+<span class="line"><span class="prompt">Claude</span>  <span class="sx-fn">読み取り</span> <span class="sx-flag">src/auth.ts</span></span>
+<span class="line"><span class="sx-dim">        ファイルツリーから選んでも同じように渡せます</span> <span class="caret" aria-hidden="true"></span></span>
+</CodeBlock>
+</ModeBlock>
+
+## §3 入力テクその2 — # で覚えさせる
+
+二つめは <Term id="hash-memory"># メモリ追記</Term> です。行頭に `#` を付けて入力すると、その内容を **メモリ(`CLAUDE.md` など)に追記** できます。「この決まりごとを覚えておいて」とその場で言い置く感覚です。
+
+たとえば「このプロジェクトではインデントはスペース 2 個」のような、毎回伝えるのが面倒なルールがあるとします。`#` で一度書いておけば、以降のセッションでもエージェントがそれを踏まえて動くようになります。指示するたびに前提を繰り返さなくてよくなる、という地味に効くテクです。
+
+<ModeBlock mode="terminal">
+<CodeBlock title="zsh — claude" badge="入力テク">
+<span class="line"><span class="sx-com"># 行頭に # を付けると、その内容を覚えてもらえる</span></span>
+<span class="line"><span class="prompt cy">&gt;</span> <span class="sx-key">#</span> <span class="sx-str">このプロジェクトのインデントはスペース 2 個に統一する</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">  ⎿ </span><span class="sx-fn">memory</span> <span class="sx-flag">CLAUDE.md</span> <span class="sx-str">に追記しました</span></span>
+<span class="line"><span class="prompt cy">&gt;</span> <span class="caret" aria-hidden="true"></span></span>
+</CodeBlock>
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+デスクトップアプリ版でも、チャット欄で行頭に `#` を付けて送れば、同じようにメモリへ追記されます。何を覚えたかは <Term id="claude-md">CLAUDE.md</Term> を開けば確認できるので、増えすぎたら見直して整理しましょう。
+
+<CodeBlock title="セッションログ" badge="入力テク">
+<span class="line"><span class="sx-com"># 行頭の # でメモリに追記される</span></span>
+<span class="line"><span class="prompt cy">あなた</span>  <span class="sx-key">#</span> <span class="sx-str">このプロジェクトのインデントはスペース 2 個に統一する</span></span>
+<span class="line"> </span>
+<span class="line"><span class="prompt">Claude</span>  <span class="sx-fn">記憶</span> <span class="sx-flag">CLAUDE.md</span> <span class="sx-str">に追記しました</span></span>
+<span class="line"><span class="prompt cy">あなた</span>  <span class="caret" aria-hidden="true"></span></span>
+</CodeBlock>
+</ModeBlock>
+
+<Callout>
+  <b>@ は「今だけ見て」、# は「ずっと覚えて」。</b> 同じ記号でも役割は逆向きです。<Term id="at-mention">@メンション</Term> はそのとき限りファイルを渡すもの、<Term id="hash-memory"># メモリ追記</Term> は次回以降も効く約束ごとを残すもの。この違いを押さえると使い分けに迷いません。
+</Callout>
+
+## §4 ショートカットは「変わるもの」と心得る
+
+最後に大切な注意を一つ。ここで挙げたキー操作は、**Claude Code の版(バージョン)によって変わることがあります**。新しい機能が増えると、割り当てが見直されたり、新しいショートカットが加わったりするからです。
+
+<Callout type="warn">
+  <b>キー割り当ては最新版で確かめる。</b> 「表のとおりに押したのに効かない」と感じたら、まずは <Term id="slash-command">スラッシュコマンド</Term> の <code class="inline">/help</code> を打って、いま使えるショートカットの一覧を確認してください。<Term id="auto-update">自動更新</Term>で版が進んでいる場合、本サイトの記述より新しいことがあります。困ったら最新版の <code class="inline">/help</code> が正解です。
+</Callout>
+
+覚えるべきは、すべてのキーを丸暗記することではありません。**「中断は `Esc`、補完は `Tab`、迷ったら `/help`」**——この三つさえ手になじめば、残りは使ううちに自然と覚えます。そして `@` と `#` の二つの入力テクが加われば、毎回の往復はもう十分に軽くなっているはずです。
+
+次章では、この章で予告した <Term id="rewind">巻き戻し</Term> をきちんと扱います。`Esc` `Esc` で呼び出せるあの操作で、「失敗しても戻せる」という安心を手に入れましょう。

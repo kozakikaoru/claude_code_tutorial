@@ -1,0 +1,37 @@
+---
+/**
+ * Term.astro — 用語ツールチップ（ADR-002 / design.md §4.3）
+ * 本文では <Term id="agent">エージェント</Term>。id で glossary を引き、下線 + ホバー/タップで pop 表示。
+ *   - 未定義 id はビルド時に throw（typo を早期検出 / R9）。
+ *   - 表示語句は <slot />（なければ正式名称）。
+ *   - short の `**…**` は <b> に変換（最小パーサ。生 HTML は埋めない / XSS 回避）。
+ */
+import { glossary } from '../data/glossary';
+
+interface Props {
+  id: string;
+}
+const { id } = Astro.props;
+const g = glossary[id];
+if (!g) {
+  throw new Error(`[Term] 未定義の用語 id: "${id}" — src/data/glossary.ts を確認してください`);
+}
+
+// プレーン文字列を HTML エスケープしてから `**…**` だけ <b> に変換する最小パーサ
+function renderShort(text: string): string {
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  return escaped.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+}
+const defHtml = renderShort(g.short);
+const hasSlot = Astro.slots.has('default');
+---
+<span class="term" tabindex="0" data-term={id}>
+  {hasSlot ? <slot /> : g.term}
+  <span class="pop" role="tooltip">
+    <span class="pop-term">{g.term}</span>
+    <p class="pop-def" set:html={defHtml}></p>
+  </span>
+</span>

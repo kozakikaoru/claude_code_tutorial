@@ -1,0 +1,49 @@
+---
+/**
+ * CodeBlock.astro — コード/ターミナル風スラブ（frosted liquid glass）
+ * タイトルバー（信号ドット + ファイル名 + バッジ + copy）+ 本文 slot。
+ * 本文はそのまま <slot />（MDX 側で .line/.prompt/.sx-* を使った組版を渡せる）。
+ * copy ボタンは見た目のみ（cosmetic）。
+ */
+interface Props {
+  title?: string;
+  badge?: string;
+}
+const { title, badge } = Astro.props;
+const hasTitleSlot = Astro.slots.has('title');
+---
+<div class="codeblock">
+  <div class="code-head">
+    <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span class="code-title">
+      {hasTitleSlot ? <slot name="title" /> : <span>{title}</span>}
+      {badge && <span class="badge">{badge}</span>}
+    </span>
+    <button class="code-copy" type="button" data-copy>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M5 15V5a2 2 0 012-2h8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      <span>copy</span>
+    </button>
+  </div>
+  <pre class="code-body"><slot /></pre>
+</div>
+
+<script is:inline>
+  (function () {
+    document.querySelectorAll('.code-copy[data-copy]').forEach(function (btn) {
+      if (btn.dataset.bound) return;
+      btn.dataset.bound = '1';
+      btn.addEventListener('click', function () {
+        var slab = btn.closest('.codeblock');
+        var body = slab ? slab.querySelector('.code-body') : null;
+        var t = btn.querySelector('span');
+        var prev = t.textContent;
+        if (body && navigator.clipboard) {
+          navigator.clipboard.writeText(body.innerText).catch(function () {});
+        }
+        t.textContent = 'copied';
+        btn.style.color = 'var(--cyan)';
+        setTimeout(function () { t.textContent = prev; btn.style.color = ''; }, 1300);
+      });
+    });
+  })();
+</script>

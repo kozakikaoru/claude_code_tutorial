@@ -1,0 +1,132 @@
+---
+/**
+ * ChapterLayout.astro — 章ページ共通シェル（サイドバー + topbar + ステップ枠 / design.md §1, ADR-003 §3-4）
+ * BaseLayout の上に、自動生成ナビ・モードトグル・進捗・前後ナビを配置し、本文 slot を囲む。
+ *
+ * ステップ型 UI（ADR-003）:
+ *   - 本文は rehype-stepify が §（H2）境界で <section class="step"> に自動分割する。
+ *   - 章ヘッダー（eyebrow/h1/lede/byline/Progress）は「表紙＝ステップ0」に集約する。
+ *     ヘッダーは .step-cover として出力し、StepDeck が初期化時に最初の section（step-0）へ
+ *     差し込む（プラグインと疎結合に保つため DOM 移動で合流させる）。
+ *   - .scroll を .stepframe（1 ステップを 100dvh に収める枠）+ .stepnav（送り UI）へ組み替え。
+ *   - 章をまたぐ送り（章末→次章 #step-0／章頭→前章末尾）のため、前後章の step 総数を算出して渡す。
+ */
+import BaseLayout from './BaseLayout.astro';
+import Sidebar from '../components/Sidebar.astro';
+import SidebarScript from '../components/SidebarScript.astro';
+import ModeToggle from '../components/ModeToggle.astro';
+import Progress from '../components/Progress.astro';
+import StepNav from '../components/StepNav.astro';
+import StepDeck from '../components/StepDeck.astro';
+import TermScript from '../components/TermScript.astro';
+import { partById } from '../data/parts';
+import { partProgress, chapterPath, type Chapter } from '../utils/chapters';
+import { computeSteps } from '../utils/steps';
+import { href } from '../utils/url';
+
+interface Props {
+  entry: Chapter;
+  sorted: Chapter[];
+  prev?: Chapter;
+  next?: Chapter;
+}
+const { entry, sorted, prev, next } = Astro.props;
+const part = partById[entry.data.part];
+const { index, total } = partProgress(sorted, entry);
+
+// 章番号表示（部番号.部内連番）。例: 初級の 1 章目 -> "1.1"
+const chapNo = `${parseInt(part.no, 10)}.${index}`;
+const readingTime = entry.data.readingTime;
+const updated = entry.data.updated;
+const updatedLabel = updated
+  ? `${updated.getFullYear()}.${String(updated.getMonth() + 1).padStart(2, '0')}`
+  : null;
+
+// この章のステップ総数（step0 含む）。送り UI の初期ドット数・章末判定に使う。
+const stepInfo = computeSteps(entry.body ?? '');
+// 章境界リンク: 次章は #step-0、前章は #step-<前章の最終 step>。
+const nextHref = next ? `${href(chapterPath(next.id))}#step-0` : null;
+const prevSteps = prev ? computeSteps(prev.body ?? '') : null;
+const prevHref = prev ? `${href(chapterPath(prev.id))}#step-${prevSteps!.lastIndex}` : null;
+---
+<BaseLayout title={entry.data.title} description={entry.data.summary}>
+  <div class="scrim" id="scrim"></div>
+
+  <div class="app">
+    <Sidebar sorted={sorted} currentId={entry.id} />
+
+    <div class="main">
+      <header class="topbar">
+        <button class="hamburger" id="hamburger" aria-label="メニューを開く">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+
+        <div class="crumbs"><b>{part.label}</b> &nbsp;/&nbsp; {chapNo} &nbsp;/&nbsp; {entry.data.title}</div>
+        <div class="topbar-spacer"></div>
+
+        <ModeToggle />
+      </header>
+
+      <!-- ステップ枠: 1 ステップを 1 画面（100dvh 残り）に収める。JS 無効時は通常の縦スクロール。 -->
+      <div class="stepframe" id="stepframe">
+        <!-- 章ヘッダー（表紙）= ステップ0 の冒頭。StepDeck が step-0 section の先頭へ差し込む。 -->
+        <div class="step-cover" id="stepCover">
+          <div class="eyebrow">
+            <span class="chap-no">第 {chapNo} 章</span>
+            <span class="ln"></span>
+            <span>{part.label}</span>
+          </div>
+
+          <h1 class="title">{entry.data.title}</h1>
+
+          <p class="lede">{entry.data.summary}</p>
+
+          <div class="byline">
+            {readingTime && <span class="tag">読了 {readingTime} 分</span>}
+            {readingTime && <span class="dot"></span>}
+            <span>{part.level} · {part.label}</span>
+            {updatedLabel && <span class="dot"></span>}
+            {updatedLabel && <span>更新 {updatedLabel}</span>}
+          </div>
+
+          <Progress
+            partLabel={part.label}
+            partId={part.id}
+            index={index}
+            total={total}
+            chapterId={entry.id}
+          />
+        </div>
+
+        <article class="article">
+          <!-- MDX 本文（rehype-stepify が section.step に分割。Term/ModeBlock/Callout/CodeBlock 等が使える） -->
+          <slot />
+        </article>
+      </div>
+
+      <!-- 章内ステップ送り（ドット/バー + 前後）。html.js のときだけ表示。 -->
+      <StepNav
+        stepCount={stepInfo.total}
+        prevHref={prevHref}
+        prevTitle={prev ? prev.data.title : null}
+        nextHref={nextHref}
+        nextTitle={next ? next.data.title : null}
+      />
+
+      <footer class="foot">
+        <span>Claude Code 道場</span>
+        <span class="sep">·</span>
+        <a href="https://github.com/" class="link" rel="noopener noreferrer">GitHub</a>
+        <span class="sep">·</span>
+        <a href="https://code.claude.com/docs" class="link" rel="noopener noreferrer">公式ドキュメント</a>
+        <span class="sep">·</span>
+        <a href={href('/glossary')} class="link" style="margin-left:auto;">用語集</a>
+      </footer>
+    </div>
+  </div>
+
+  <SidebarScript />
+  <TermScript />
+  <!-- ステップ送りエンジン（is:inline 島）。data-active 付け替え + #step-N + キー/スワイプ。 -->
+  <StepDeck stepCount={stepInfo.total} />
+</BaseLayout>

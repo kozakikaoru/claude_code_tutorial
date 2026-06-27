@@ -1,0 +1,12 @@
+---
+/**
+ * ModeBlock.astro — ブロック単位のモード出し分け（ADR-001 / design.md §3.2a）
+ * 著者は <ModeBlock mode="terminal">…</ModeBlock> と書くだけ。HTML/CSS を知らなくてよい。
+ * 両モード分を DOM に同梱し、body[data-mode] × CSS（.mode-only）で表示を切り替える。
+ */
+interface Props {
+  mode: 'terminal' | 'desktop';
+}
+const { mode } = Astro.props;
+---
+<div class={`mode-only for-${mode}`}><slot /></div>

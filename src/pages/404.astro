@@ -1,0 +1,27 @@
+---
+/**
+ * 404.astro — base 配下で動く 404（design.md §8）
+ * リンクはすべて base ヘルパ経由。
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { href } from '../utils/url';
+---
+<BaseLayout title="ページが見つかりません">
+  <main class="nf">
+    <div class="eyebrow">
+      <span class="chap-no">404</span>
+      <span class="ln"></span>
+      <span>Not Found</span>
+    </div>
+    <h1 class="title">この<span class="accent">ページ</span>は<br />見つかりませんでした</h1>
+    <p class="lede">
+      URL が変わったか、まだ公開されていない章かもしれません。トップから目次をたどってみてください。
+    </p>
+    <p><a class="link" href={href('/')}>← トップへ戻る</a></p>
+  </main>
+</BaseLayout>
+
+<style>
+  .nf { max-width: var(--maxread); margin: 0 auto; padding: 12vh clamp(22px, 5vw, 40px) 0; position: relative; z-index: 1; }
+  .nf .lede { max-width: 52ch; }
+</style>

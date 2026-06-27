@@ -1,0 +1,322 @@
+---
+/**
+ * StepDeck.astro — ステップ送りエンジン（is:inline 島 / ADR-003 §2.3, §5）
+ *
+ * 責務（小さく保つ。モードや用語には触れない）:
+ *   - section.step の data-active 付け替えで「アクティブ 1 枚」を表示。
+ *   - 状態を URL ハッシュ #step-N に同期。初期/hashchange は replaceState、
+ *     ユーザー操作（ボタン/キー/ドット/スワイプ）は pushState（「戻る」で 1 ステップ戻る）。
+ *   - 章ヘッダー(.step-cover)を step-0 の .step-inner 先頭へ差し込み「表紙」に合流。
+ *   - StepNav のドット/バー生成・current 更新・前後ボタンの活殺・aria-live 通知。
+ *   - はみ出し（is-overflow）判定を表示時／resize／モード切替（body[data-mode] 変化）で再計測。
+ *   - 章境界: 先頭で前へ→前章末尾、末尾で次へ→次章先頭（通常遷移）。
+ *
+ * 干渉回避: 触るのは data-active / location.hash / 進捗 UI / is-overflow のみ。
+ *   body[data-mode] / .mode-only には一切触れない（ADR-001 と直交）。
+ *
+ * FOUC: <body> 末尾に置き、section が DOM に在る最短点で初期 step を同期確定する。
+ */
+interface Props {
+  /** この章のステップ総数（step0 含む。SSR 値。実 DOM とズレたら DOM 優先） */
+  stepCount: number;
+}
+const { stepCount } = Astro.props;
+---
+<script is:inline define:vars={{ ssrStepCount: stepCount }}>
+  (function () {
+    var RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    var frame = document.getElementById('stepframe');
+    if (!frame) return;
+    var article = frame.querySelector('.article');
+    if (!article) return;
+
+    // DOM 順 = 表示順。section.step を集める。
+    var steps = Array.prototype.slice.call(article.querySelectorAll('section.step'));
+
+    // --- 表紙(.step-cover)を step-0 の .step-inner 先頭へ差し込む（あれば） ---
+    var cover = document.getElementById('stepCover');
+    if (cover && steps.length) {
+      var first = steps[0];
+      var inner = first.querySelector('.step-inner') || first;
+      // step-0 の本文（lede）の前に表紙を置く。
+      inner.insertBefore(cover, inner.firstChild);
+      cover.removeAttribute('id'); // 元位置セレクタ(#stepCover)の保険を無効化
+    }
+
+    var nav = document.getElementById('stepNav');
+    var total = steps.length;
+
+    // ステップが 0〜1 個（単一節章 / 分割不成立）なら送り無効。1 枚だけ表示して終了。
+    if (total <= 1) {
+      if (steps[0]) steps[0].setAttribute('data-active', '');
+      if (nav) nav.style.display = 'none';
+      return;
+    }
+
+    // --- StepNav の参照と章境界データ ---
+    var dotsWrap = nav ? nav.querySelector('.dots') : null;
+    var meterFill = nav ? nav.querySelector('.meter .fill') : null;
+    var meterCur = nav ? nav.querySelector('.meter .cur') : null;
+    var meterTot = nav ? nav.querySelector('.meter .tot') : null;
+    var btnPrev = nav ? nav.querySelector('[data-nav="prev"]') : null;
+    var btnNext = nav ? nav.querySelector('[data-nav="next"]') : null;
+    var live = document.getElementById('stepLive');
+
+    var barThreshold = nav ? parseInt(nav.getAttribute('data-bar-threshold') || '8', 10) : 8;
+    var prevHref = nav ? nav.getAttribute('data-prev-href') || '' : '';
+    var prevTitle = nav ? nav.getAttribute('data-prev-title') || '' : '';
+    var nextHref = nav ? nav.getAttribute('data-next-href') || '' : '';
+    var nextTitle = nav ? nav.getAttribute('data-next-title') || '' : '';
+
+    var useBar = total > barThreshold;
+    if (nav) {
+      if (useBar) nav.classList.add('as-bar');
+      else nav.classList.remove('as-bar');
+      if (meterTot) meterTot.textContent = String(total);
+    }
+
+    // --- ドット生成（ボタン）。クリックでそのステップへ。 ---
+    var dotEls = [];
+    if (dotsWrap && !useBar) {
+      dotsWrap.innerHTML = '';
+      for (var i = 0; i < total; i++) {
+        var d = document.createElement('button');
+        d.type = 'button';
+        d.className = 'dot';
+        d.setAttribute('role', 'tab');
+        d.setAttribute('aria-label', 'ステップ ' + (i + 1));
+        d.setAttribute('data-index', String(i));
+        (function (idx) {
+          d.addEventListener('click', function () { go(idx, true); });
+        })(i);
+        dotsWrap.appendChild(d);
+        dotEls.push(d);
+      }
+    }
+
+    // section にフォーカス可能属性（送り後の focus 移動・SR 用）。
+    steps.forEach(function (s) {
+      if (!s.hasAttribute('tabindex')) s.setAttribute('tabindex', '-1');
+    });
+
+    function clamp(n) {
+      n = isNaN(n) ? 0 : n;
+      if (n < 0) return 0;
+      if (n > total - 1) return total - 1;
+      return n;
+    }
+
+    // ハッシュから step 番号を読む。#step-N のみ採用。未知ハッシュは見出し slug を逆引き。
+    function parseHash() {
+      var h = location.hash || '';
+      if (!h) return null;
+      var m = h.match(/^#step-(\d+)$/);
+      if (m) return clamp(parseInt(m[1], 10));
+      // 見出し slug アンカー（#権限モード… 等）→ その見出しを含む step を逆引き（§2.5）。
+      var id = h.slice(1);
+      try {
+        var el = document.getElementById(decodeURIComponent(id)) || document.getElementById(id);
+        if (el) {
+          for (var k = 0; k < steps.length; k++) {
+            if (steps[k].contains(el)) return k;
+          }
+        }
+      } catch (e) {}
+      return null;
+    }
+
+    var cur = clamp(parseHash() == null ? 0 : parseHash());
+
+    // はみ出し判定: アクティブ step の中身が枠より高ければ is-overflow（上詰め＋内部スクロール）。
+    function measureOverflow(stepEl) {
+      if (!stepEl) return;
+      // 一旦 is-overflow を外して素の高さを測る
+      stepEl.classList.remove('is-overflow');
+      // 表示直後の 1 フレーム後に測ると正確（フォントロード等）。ここでは同期で概算 + rAF で確定。
+      var doMeasure = function () {
+        var overflow = stepEl.scrollHeight > stepEl.clientHeight + 1;
+        stepEl.classList.toggle('is-overflow', overflow);
+      };
+      doMeasure();
+      requestAnimationFrame(doMeasure);
+    }
+
+    function updateNav() {
+      // ドット current
+      for (var i = 0; i < dotEls.length; i++) {
+        if (i === cur) dotEls[i].setAttribute('aria-current', 'true');
+        else dotEls[i].removeAttribute('aria-current');
+      }
+      // バー
+      if (meterFill) meterFill.style.width = (total > 1 ? (cur / (total - 1)) * 100 : 100) + '%';
+      if (meterCur) meterCur.textContent = String(cur + 1);
+
+      // 前へ: 先頭(0)では前章末尾へ（あれば cross 表示）、無ければ disabled。
+      if (btnPrev) {
+        if (cur > 0) {
+          btnPrev.disabled = false;
+          btnPrev.classList.remove('cross');
+          btnPrev.setAttribute('aria-label', '前のステップ');
+        } else if (prevHref) {
+          btnPrev.disabled = false;
+          btnPrev.classList.add('cross');
+          btnPrev.setAttribute('aria-label', '前の章へ' + (prevTitle ? '（' + prevTitle + '）' : ''));
+        } else {
+          btnPrev.disabled = true;
+          btnPrev.classList.remove('cross');
+        }
+      }
+      // 次へ: 末尾では次章先頭へ（あれば cross 表示）、無ければ disabled。
+      if (btnNext) {
+        if (cur < total - 1) {
+          btnNext.disabled = false;
+          btnNext.classList.remove('cross');
+          btnNext.setAttribute('aria-label', '次のステップ');
+        } else if (nextHref) {
+          btnNext.disabled = false;
+          btnNext.classList.add('cross');
+          btnNext.setAttribute('aria-label', '次の章へ' + (nextTitle ? '（' + nextTitle + '）' : ''));
+        } else {
+          btnNext.disabled = true;
+          btnNext.classList.remove('cross');
+        }
+      }
+      // SR 通知
+      if (live) live.textContent = 'ステップ ' + (cur + 1) + ' / ' + total;
+    }
+
+    // 表示反映。replace=true は履歴を汚さない（初期/hashchange）。dir はスライド方向。
+    function show(i, opts) {
+      opts = opts || {};
+      i = clamp(i);
+      var dir = opts.dir || null;
+
+      steps.forEach(function (s, k) {
+        if (k === i) s.setAttribute('data-active', '');
+        else s.removeAttribute('data-active');
+      });
+      cur = i;
+
+      // スライド方向（reduced-motion 時は付けない）
+      if (dir && !RM) {
+        frame.setAttribute('data-dir', dir);
+      } else {
+        frame.removeAttribute('data-dir');
+      }
+
+      // 内部スクロール位置リセット → overflow 再判定
+      var active = steps[i];
+      if (active) {
+        active.scrollTop = 0;
+        measureOverflow(active);
+      }
+
+      updateNav();
+
+      // ハッシュ反映
+      var hash = '#step-' + i;
+      try {
+        if (opts.replace) history.replaceState(null, '', hash);
+        else history.pushState(null, '', hash);
+      } catch (e) {
+        // 古い環境では location.hash 直書き（pushState 相当）にフォールバック
+        if (location.hash !== hash) location.hash = hash;
+      }
+
+      // フォーカス移動（スクロールさせない）。初期表示では奪わない。
+      if (opts.focus && active) {
+        try { active.focus({ preventScroll: true }); } catch (e) { active.focus(); }
+      }
+    }
+
+    // ユーザー操作の遷移（pushState + dir + focus）。章境界をまたぐ場合は通常遷移。
+    function go(target, fromUser) {
+      if (target < 0) {
+        if (prevHref) { location.href = prevHref; return; }
+        return;
+      }
+      if (target > total - 1) {
+        if (nextHref) { location.href = nextHref; return; }
+        return;
+      }
+      var dir = target > cur ? 'next' : (target < cur ? 'prev' : null);
+      show(target, { replace: false, dir: dir, focus: !!fromUser });
+    }
+
+    // --- 初期表示（履歴を汚さない replace）。focus は奪わない。 ---
+    show(cur, { replace: true });
+
+    // --- バインド ---
+    if (btnPrev) btnPrev.addEventListener('click', function () { go(cur - 1, true); });
+    if (btnNext) btnNext.addEventListener('click', function () { go(cur + 1, true); });
+
+    // キーボード（← →、PageUp/PageDown）。入力要素にフォーカス中は無効化。
+    document.addEventListener('keydown', function (e) {
+      var t = e.target;
+      var tag = t && t.tagName ? t.tagName.toLowerCase() : '';
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || (t && t.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+        e.preventDefault(); go(cur + 1, true);
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault(); go(cur - 1, true);
+      } else if (e.key === 'Home') {
+        e.preventDefault(); go(0, true);
+      } else if (e.key === 'End') {
+        e.preventDefault(); go(total - 1, true);
+      }
+    });
+
+    // hashchange（戻る/進む or 手動編集）→ replace で同期（履歴を増やさない）。
+    window.addEventListener('hashchange', function () {
+      var n = parseHash();
+      if (n == null) return;
+      if (n === cur) return;
+      var dir = n > cur ? 'next' : 'prev';
+      show(n, { replace: true, dir: dir, focus: false });
+    });
+
+    // スワイプ（モバイル）。横方向しきい値で前後。縦スクロール優先のため縦移動が大きければ無視。
+    var tsx = 0, tsy = 0, swiping = false;
+    frame.addEventListener('touchstart', function (e) {
+      if (!e.touches || e.touches.length !== 1) { swiping = false; return; }
+      tsx = e.touches[0].clientX; tsy = e.touches[0].clientY; swiping = true;
+    }, { passive: true });
+    frame.addEventListener('touchend', function (e) {
+      if (!swiping) return;
+      swiping = false;
+      var ch = e.changedTouches && e.changedTouches[0];
+      if (!ch) return;
+      var dx = ch.clientX - tsx;
+      var dy = ch.clientY - tsy;
+      if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.4) return; // 横スワイプのみ
+      if (dx < 0) go(cur + 1, true);   // 左へスワイプ = 次
+      else go(cur - 1, true);          // 右へスワイプ = 前
+    }, { passive: true });
+
+    // resize で現ステップの overflow 再判定（縦が変わると中央/上詰めが変わる）。
+    var rzTimer = null;
+    window.addEventListener('resize', function () {
+      if (rzTimer) clearTimeout(rzTimer);
+      rzTimer = setTimeout(function () { measureOverflow(steps[cur]); }, 120);
+    });
+
+    // モード切替（body[data-mode] 変化）で現ステップの高さが変わる → overflow だけ再計測。
+    // ※ body[data-mode] は読むだけ。書かない（モードトグルの領分）。
+    if (window.MutationObserver) {
+      var mo = new MutationObserver(function () {
+        // 2 フレーム後に測る（mode CSS の反映を待つ）
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () { measureOverflow(steps[cur]); });
+        });
+      });
+      mo.observe(document.body, { attributes: true, attributeFilter: ['data-mode'] });
+    }
+
+    // フォントロード完了後にもう一度測る（行数が変わり得る）。
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(function () { measureOverflow(steps[cur]); });
+    }
+  })();
+</script>

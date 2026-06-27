@@ -1,0 +1,21 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "astro-dev",
+      "runtimeExecutable": "/usr/local/opt/node@22/bin/npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 4321,
+      "autoPort": true,
+      "env": {
+        "PATH": "/usr/local/opt/node@22/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+      }
+    },
+    {
+      "name": "design-static",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "4399", "--directory", "design"],
+      "port": 4399
+    }
+  ]
+}

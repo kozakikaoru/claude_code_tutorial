@@ -1,0 +1,14 @@
+---
+/**
+ * LiquidBackground.astro — 液体の海（drift する 4 blob + veil / design.md §5.4）
+ * 全ページ共通で BaseLayout に 1 回設置。各ページが同じ土台の上に乗る＝一貫性。
+ * z-index は背面、pointer-events:none、aria-hidden。
+ */
+---
+<div class="liquid-bg" aria-hidden="true">
+  <span class="blob b1"></span>
+  <span class="blob b2"></span>
+  <span class="blob b3"></span>
+  <span class="blob b4"></span>
+</div>
+<div class="liquid-veil" aria-hidden="true"></div>

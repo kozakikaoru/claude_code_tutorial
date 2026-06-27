@@ -1,0 +1,92 @@
+---
+title: Claude Code とは
+part: intro
+order: 1
+level: 初級
+summary: コードを貼って直してもらうのではなく、リポジトリごと任せる——その思想転換から始めます。Claude Code が「何で、どう動くのか」を、最初の一歩を踏み出す前に俯瞰します。
+readingTime: 6
+updated: 2026-06-27
+---
+
+import GlassShowcase from '../../../components/GlassShowcase.astro';
+
+<GlassShowcase
+  heading="コードを貼るのではなく、<em>リポジトリごと</em> 任せる"
+  text="このサイトは Claude Code の使い方を、初級からプロまで段階的に学ぶ道場です。まずは、これまでのコーディング支援ツールと何が違うのかを掴みましょう。"
+/>
+
+<Term id="claude-code">Claude Code</Term> は、あなたの <Term id="repository">リポジトリ</Term> を文脈として理解し、自然言語の指示からコードを生成・編集・リファクタリングする <Term id="agent">エージェント</Term>です。単なる補完ではなく、ファイルを横断して読み、テストを走らせ、差分を提案するところまでを一貫して行います。
+
+これまでのツールは「コードの断片を貼り付けて、直したものを受け取る」一問一答でした。Claude Code はそこから一歩進んで、**プロジェクト全体を任せる**——「失敗しているテストを直して」のような曖昧な依頼でも、自分で計画を立て、必要なファイルを読み、変更し、検証するまでを回します。
+
+<Callout>
+  この「コードを貼って直す」から「**リポジトリごと任せる**」への発想転換が、Claude Code を使ううえで最初に腹落ちさせたい一点です。本サイトはこの前提で進みます。
+</Callout>
+
+## §1 何が「できる」のか
+
+できることは多いですが、最初に押さえるべきは次の三つ。いずれも、あなたが <Term id="prompt">プロンプト</Term> で意図を伝えるだけで動きます。
+
+- **コードベースの理解と質問応答** — 「この関数はどこから呼ばれている?」に、リポジトリを読んで答える。
+- **複数ファイルにまたがる編集** — 1 つの変更が波及する箇所をまとめて直す。
+- **コマンド実行とその結果に基づく判断** — テストやビルドを走らせ、失敗を見て次の手を決める。
+
+これらを組み合わせて、実装・テスト・Git 操作・調査・業務自動化まで一貫してこなします。重要なのは、人間がひとつひとつ指示しなくても、**目標に向かって自分で手順を分解する** 点です。これを <Term id="autonomous-loop">自律ループ</Term> と呼びます。
+
+<ModeBlock mode="terminal">
+### ターミナルでは、こう動く
+
+プロジェクトのルートで `claude` を起動すると対話セッションが始まります。指示を打ち込むと、エージェントが読み取り・編集・実行を順に行い、差分をその場で見せてくれます。
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+### デスクトップアプリでは、こう動く
+
+アプリでフォルダーを開き、チャット欄に指示を入力します。エージェントの読み取り・編集・実行はパネルに可視化され、差分はサイドのビューアで確認・承認できます。
+</ModeBlock>
+
+<CodeBlock badge="例">
+  <Fragment slot="title">
+    <span class="mode-only for-terminal">zsh — claude</span>
+    <span class="mode-only for-desktop">セッションログ</span>
+  </Fragment>
+<span class="line mode-only for-terminal"><span class="sx-com"># プロジェクトのルートで起動</span></span>
+<span class="line mode-only for-terminal"><span class="prompt">$</span> <span class="sx-key">claude</span></span>
+<span class="line mode-only for-terminal"> </span>
+<span class="line mode-only for-terminal"><span class="prompt cy">&gt;</span> <span class="sx-str">"失敗しているテストを直して"</span></span>
+<span class="line mode-only for-terminal"> </span>
+<span class="line mode-only for-terminal"><span class="sx-dim">  ⎿ </span><span class="sx-fn">read</span> <span class="sx-flag">src/parser.ts</span> <span class="sx-dim">(212 行)</span></span>
+<span class="line mode-only for-terminal"><span class="sx-dim">  ⎿ </span><span class="sx-fn">edit</span> <span class="sx-flag">src/parser.ts</span> <span class="sx-str">+4 -1</span></span>
+<span class="line mode-only for-terminal"><span class="sx-dim">  ⎿ </span><span class="sx-fn">run</span>  <span class="sx-flag">npm test</span> <span class="sx-str">→ 24 passed</span></span>
+<span class="line mode-only for-terminal"><span class="prompt cy">&gt;</span> <span class="caret" aria-hidden="true"></span></span>
+<span class="line mode-only for-desktop"><span class="sx-com"># フォルダーを開いてチャットに入力</span></span>
+<span class="line mode-only for-desktop"><span class="prompt cy">あなた</span>  <span class="sx-str">失敗しているテストを直して</span></span>
+<span class="line mode-only for-desktop"> </span>
+<span class="line mode-only for-desktop"><span class="prompt">Claude</span>  <span class="sx-fn">読み取り</span> <span class="sx-flag">src/parser.ts</span></span>
+<span class="line mode-only for-desktop"><span class="sx-dim">        </span><span class="sx-fn">編集</span>     <span class="sx-flag">src/parser.ts</span>  <span class="sx-str">+4 −1</span></span>
+<span class="line mode-only for-desktop"><span class="sx-dim">        </span><span class="sx-fn">実行</span>     <span class="sx-flag">npm test</span>  <span class="sx-str">→ 24 件 成功</span></span>
+<span class="line mode-only for-desktop"><span class="sx-dim">        差分パネルで承認してください</span> <span class="caret" aria-hidden="true"></span></span>
+</CodeBlock>
+
+<Callout>
+  <b>差分は、必ず人が承認する。</b> エージェントの編集はいきなり確定されません。提案された変更を読み、納得してから取り込む——この往復がレビューの基本姿勢です。次章以降で実際に体験します。
+</Callout>
+
+## §2 「優秀な新卒部下」というメタファー
+
+Claude Code を、**優秀だが、あなたのプロジェクトの事情はまだ知らない新卒部下** だと思うと扱いやすくなります。地頭は良く、言われたことは速くこなす。けれど「うちのコーディング規約」「このリポジトリの暗黙のルール」は、教えなければ分かりません。
+
+だからこそ、後の章で学ぶ **環境づくり**（規約を書いた `CLAUDE.md`、安全装置の権限設定、役割を分けたサブエージェント)が効いてきます。プロンプトを工夫するより、**部下が働きやすい環境を整える** 方が、結果が安定するのです。
+
+## §3 二つのモード、同じ中身
+
+本サイトは、ターミナルから使う **ターミナル版** と、ウィンドウで操作する **デスクトップアプリ版** の二つのモードで説明を進めます。中身のモデルと能力は同じで、入り口だけが違います。
+
+いま選んでいるのは
+<ModeText mode="terminal"><strong style="color:var(--amber)">ターミナル版</strong>。コマンド主体の説明が表示されています。</ModeText>
+<ModeText mode="desktop"><strong style="color:var(--cyan)">デスクトップアプリ版</strong>。ウィンドウ操作主体の説明が表示されています。</ModeText>
+右上のトグルを切り替えると、しずくが反対側へとろりと移って、この段落も含め説明が入れ替わります。試してみてください。選んだモードは記憶され、次に開いたときも維持されます。
+
+そしてもうひとつ。本文に点線の下線が引かれた語——たとえば <Term id="agent">エージェント</Term> ——にカーソルを合わせる（スマートフォンならタップする）と、用語の説明がふわっと現れます。知らない言葉が出てきたら、まずそこを触ってみてください。
+
+次章では、この二つのモードそれぞれで Claude Code を **インストール** して、実際に起動できる状態を作ります。

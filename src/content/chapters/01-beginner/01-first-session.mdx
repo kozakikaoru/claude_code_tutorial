@@ -1,0 +1,103 @@
+---
+title: はじめての対話 — 基本ワークフロー
+part: beginner
+order: 2
+level: 初級
+summary: 起動はできた。では最初に何を打つのか。自然言語でひとつタスクを完遂させ、「リポジトリごと任せる」感覚を体で覚えます。指示 → 計画 → 編集 → 検証、という基本の流れを一度通します。
+readingTime: 7
+updated: 2026-06-27
+---
+
+前章で起動できる状態は整いました。この章のゴールは、**自然言語の指示をひとつ投げて、最後まで完遂させる**こと。小さくてかまいません。一度通せば、Claude Code との付き合い方の芯が掴めます。
+
+身構える必要はありません。きれいな命令文を考える前に、まずは普段チームメイトに頼むときの言葉でそのまま打ってみる——それが正解です。
+
+## §1 基本の流れは、いつも同じ
+
+Claude Code の<Term id="workflow">ワークフロー</Term>は、タスクの大小にかかわらず同じ形をしています。
+
+1. **あなたが指示する** — 「○○して」と<Term id="prompt">プロンプト</Term>を書く。自然文でかまいません。
+2. **エージェントが計画する** — 何をどの順でやるかを自分で組み立てます。
+3. **読んで、編集する** — 関連ファイルを横断して読み、必要な箇所を直します。
+4. **<Term id="verification">検証</Term>する** — テストやビルドを実際に走らせて、結果を確かめます。
+5. **結果を見て直す** — 失敗があればそれを読み、また編集に戻る。これを完了まで繰り返します。
+
+ポイントは 4 と 5 です。<Term id="agent">エージェント</Term>は「直して終わり」ではなく、**自分の変更が本当に正しいかを実行で確かめ、ダメなら直し直す**。この往復を自分で回してくれるところが、ただの補完との決定的な違いです。
+
+<Callout>
+  最初は「ひとつのファイルの小さな修正」から始めるのがおすすめです。いきなり大きな機能を頼むより、流れを一度体験する方がずっと近道です。<Term id="repository">リポジトリ</Term>全体を任せる感覚は、小さな成功を積んでから自然に身につきます。
+</Callout>
+
+## §2 最初のひとことを打ってみる
+
+では実際に投げてみましょう。たとえば「認証まわりのテストを書いて、走らせて、落ちたら直して」という依頼です。日本語でそのまま伝えてかまいません。
+
+<ModeBlock mode="terminal">
+起動した `claude` のプロンプト（`>`）に、やってほしいことを書いて Enter を押すだけです。あとはエージェントの出力を眺めます。読み取り・編集・実行のログがその場で流れていきます。
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+チャットの入力欄に、やってほしいことを書いて送信するだけです。エージェントの読み取り・編集・実行はパネルに可視化され、変更内容はサイドの<Term id="diff-view">差分ビュー</Term>で確認できます。
+</ModeBlock>
+
+<CodeBlock badge="例">
+  <Fragment slot="title">
+    <span class="mode-only for-terminal">zsh — claude</span>
+    <span class="mode-only for-desktop">セッションログ</span>
+  </Fragment>
+<span class="line mode-only for-terminal"><span class="prompt cy">&gt;</span> <span class="sx-str">"認証まわりのテストを書いて、走らせて、落ちたら直して"</span></span>
+<span class="line mode-only for-terminal"> </span>
+<span class="line mode-only for-terminal"><span class="sx-dim">  ⎿ </span><span class="sx-fn">read</span> <span class="sx-flag">src/auth.ts</span> <span class="sx-dim">(168 行)</span></span>
+<span class="line mode-only for-terminal"><span class="sx-dim">  ⎿ </span><span class="sx-fn">edit</span> <span class="sx-flag">src/auth.test.ts</span> <span class="sx-str">+38 -0</span></span>
+<span class="line mode-only for-terminal"><span class="sx-dim">  ⎿ </span><span class="sx-fn">run</span>  <span class="sx-flag">npm test</span> <span class="sx-str">→ 2 failed</span></span>
+<span class="line mode-only for-terminal"><span class="sx-dim">  ⎿ </span><span class="sx-fn">edit</span> <span class="sx-flag">src/auth.ts</span> <span class="sx-str">+3 -1</span></span>
+<span class="line mode-only for-terminal"><span class="sx-dim">  ⎿ </span><span class="sx-fn">run</span>  <span class="sx-flag">npm test</span> <span class="sx-str">→ 14 passed</span></span>
+<span class="line mode-only for-terminal"><span class="prompt cy">&gt;</span> <span class="caret" aria-hidden="true"></span></span>
+<span class="line mode-only for-desktop"><span class="prompt cy">あなた</span>  <span class="sx-str">認証まわりのテストを書いて、走らせて、落ちたら直して</span></span>
+<span class="line mode-only for-desktop"> </span>
+<span class="line mode-only for-desktop"><span class="prompt">Claude</span>  <span class="sx-fn">読み取り</span> <span class="sx-flag">src/auth.ts</span></span>
+<span class="line mode-only for-desktop"><span class="sx-dim">        </span><span class="sx-fn">編集</span>     <span class="sx-flag">src/auth.test.ts</span>  <span class="sx-str">+38 −0</span></span>
+<span class="line mode-only for-desktop"><span class="sx-dim">        </span><span class="sx-fn">実行</span>     <span class="sx-flag">npm test</span>  <span class="sx-str">→ 2 件 失敗</span></span>
+<span class="line mode-only for-desktop"><span class="sx-dim">        </span><span class="sx-fn">編集</span>     <span class="sx-flag">src/auth.ts</span>  <span class="sx-str">+3 −1</span></span>
+<span class="line mode-only for-desktop"><span class="sx-dim">        </span><span class="sx-fn">実行</span>     <span class="sx-flag">npm test</span>  <span class="sx-str">→ 14 件 成功</span></span>
+<span class="line mode-only for-desktop"><span class="sx-dim">        差分ビューで変更を確認してください</span> <span class="caret" aria-hidden="true"></span></span>
+</CodeBlock>
+
+注目してほしいのは、`run npm test → 2 failed` のあとです。テストが落ちたのを見て、エージェントが**自分で `src/auth.ts` を直し、もう一度走らせて全部通している**——指示は最初の一回だけ。この自分で回す動きが、§1 の 4 と 5 にあたります。
+
+ちなみに、英語で書いても同じように動きます。公式のクイックスタートでよく挙がるのが、次の一行です。
+
+<CodeBlock title="zsh — claude" badge="例">
+<span class="line"><span class="prompt">$</span> <span class="sx-key">claude</span> <span class="sx-str">"write tests for the auth module, run them, and fix any failures"</span></span>
+</CodeBlock>
+
+日本語でも英語でも、**かしこまった命令形にする必要はありません**。「○○して、△△して、ダメなら直して」のように、やってほしいことを素直に並べれば十分です。
+
+## §3 「リポジトリごと任せる」を最小で体験する
+
+ここまでで気づいたかもしれません。あなたは `src/auth.ts` も `src/auth.test.ts` も、自分では一度も開いていません。**どのファイルを読むか・どこを直すかは、エージェントが<Term id="repository">リポジトリ</Term>を見て自分で決めた**のです。
+
+これが前章までで触れてきた「コードを貼って直してもらう」から「リポジトリごと任せる」への発想転換の、いちばん小さな実例です。あなたが渡したのは目的だけ。手順の分解はエージェントに委ねました。
+
+ただし、任せることと丸呑みすることは違います。
+
+<Callout type="warn">
+  <b>差分は、必ず自分の目で確認してから取り込む。</b> エージェントが変更を提案しても、それをそのまま信じ込まないでください。<ModeText mode="terminal">ターミナル版では提案された差分がその場に表示されます。</ModeText><ModeText mode="desktop">デスクトップ版では<Term id="diff-view">差分ビュー</Term>で変更前後を見比べられます。</ModeText>**読んで、納得してから取り込む**——この往復が、安心して任せるための土台です。優秀な新卒部下の仕事に、目を通してから OK を出す感覚に近いものです。
+</Callout>
+
+最初のうちは、変更が小さくても毎回ざっと差分に目を通す癖をつけておくと安心です。「どこを、なぜ直したのか」が読み取れるようになると、次の指示の出し方もうまくなっていきます。
+
+## §4 良いプロンプトの、最初のコツ
+
+同じ依頼でも、伝え方しだいで結果は安定します。ここではまず二つだけ覚えてください。深掘りは後の章でじっくり扱います。
+
+- **具体的に書く** — 「テストを直して」より「`auth` モジュールのテストを書いて、走らせて、落ちたら直して」。何をどうしてほしいかが明確なほど、迷いが減ります。
+- **文脈を添える** — 「`npm test` で動かしている」「このプロジェクトは TypeScript」のような前提を一言添えると、的外れな手順を避けられます。
+
+逆に、最初から完璧な指示を書こうと気負う必要はありません。Claude Code は曖昧な依頼も自分で計画してくれますし、出てきた結果を見て「そこは違う、こうして」と追加で伝えれば、会話を続けながら軌道修正できます。**一発で決めるより、対話で寄せていく**——これが基本の進め方です。
+
+<Callout>
+  プロンプトを磨くことより、まずは「投げてみて、差分を見て、直してもらう」の一周を回すことが大切です。良い指示の書き方は、その往復のなかで自然と身についていきます。プロンプト設計そのものは、後の章でまとめて扱います。
+</Callout>
+
+ここまでで、自然言語の指示をひとつ完遂させ、差分を確認するところまで体験できました。これが初級のいちばん大事な成功体験です。次章からは、この対話をもっと快適にするための基本操作——<Term id="claude-code">Claude Code</Term> の画面の見方や、よく使う操作——を順に押さえていきます。

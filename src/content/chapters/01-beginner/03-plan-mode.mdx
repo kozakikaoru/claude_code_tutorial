@@ -1,0 +1,101 @@
+---
+title: プランモードで安全に試す
+part: beginner
+order: 4
+level: 初級
+summary: いきなり手を動かさせるのではなく、まず「何をするか」の計画だけを出させてレビューする——プランモードで、大きめのタスクを安全に始める習慣を作ります。
+readingTime: 7
+updated: 2026-06-27
+---
+
+前章では <Term id="permission-mode">権限モード</Term> の 4 種を見て、そのなかに `plan` があることに触れました。この章では、その `plan`——<Term id="plan-mode">プランモード</Term>を深掘りします。ひとことで言えば、**先に作戦を見せてもらってから走らせる**ためのモードです。
+
+大きめのタスクほど、いきなり編集を始められると不安になります。「思っていたのと違う方向に直された」「触ってほしくないファイルまで変えられた」——こうした手戻りは、たいてい *方針をすり合わせる前に手が動いた* ことが原因です。プランモードは、その一歩手前で止まります。
+
+## §1 プランモードとは
+
+<Term id="plan-mode">プランモード</Term> は、**ファイル編集もコマンド実行もせず、何をするかの計画だけ**を立てて見せるモードです。エージェントはリポジトリを読んで現状を把握し、「まずこれをして、次にこれをして」という手順を提示します。けれど、その場では一切変更を加えません。
+
+だから安全に「まず方針だけ見る」ができます。提案された計画を読んで、納得できれば進める。違っていれば、計画の段階で軌道修正できる——コードが 1 行も書き換わっていないので、戻す手間もありません。
+
+<Callout>
+  プランモードは <Term id="permission-mode">権限モード</Term> のひとつです。前章の「都度確認 / 編集を自動承認 / 全権委任」と並ぶ選択肢で、いちばん慎重な側に位置すると考えてください。読むだけ・実行しない、が徹底されています。
+</Callout>
+
+## §2 なぜ手戻りとコストが減るのか
+
+プランモードの効きどころは、**複雑で影響範囲が広いタスクの前**です。たとえば「認証まわりを別のライブラリに移す」「複数の画面で使い回している関数の引数を変える」——こういう作業は、波及する箇所が多く、方針を間違えると修正範囲が一気に膨らみます。
+
+ここで計画を先に出させ、レビューしてから <Term id="approval-flow">承認フロー</Term> で進めると、二つの得があります。
+
+- **手戻りが減る** — ずれた方針のまま実装が走らないので、「全部やり直し」が起きにくい。
+- **コストも節約できる** — 無駄な実装をやり直さずに済むぶん、エージェントが消費する時間も削れます。間違った方向に大量のコードを書いてから捨てる、がいちばんもったいないのです。
+
+つまりプランモードは、慎重さのためだけの機能ではありません。**遠回りに見えて、結果的にいちばん速い**ことが多い、という点を覚えておいてください。
+
+## §3 計画を出す → 納得する → 実行へ
+
+実際の流れは、次の三段です。
+
+1. **プランモードで計画を出す** — タスクを伝えると、エージェントは編集せずに手順だけを提示します。
+2. **読んで納得する** — 提示された手順をレビューします。足りない観点があれば、その場で追加を頼めます。
+3. **承認して実行モードへ移す** — 納得できたら承認し、通常の編集モードに切り替えて、計画どおりに実装させます。
+
+具体例で見てみましょう。「ログイン画面にパスワード表示の目玉アイコンを追加して」という依頼を、まずプランモードで投げる場面です。
+
+<ModeBlock mode="terminal">
+### ターミナルでは、こう見える
+
+プランは**番号付きの手順**としてテキストで並びます。`Shift+Tab` でモードを巡回すると `plan` に入れます。現在のモードは <Term id="status-line">ステータスライン</Term> で確認できます。計画に納得したら承認して、実行モードへ移します。
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+### デスクトップアプリでは、こう見える
+
+専用のサイドバーに計画と進捗が可視化され、**ステップを目で追いながら**承認できます。どこまで進んだかが見えるので、長めのタスクでも全体像を見失いません。計画を確認したら、そのまま承認して実行へ進めます。
+</ModeBlock>
+
+<CodeBlock badge="例">
+  <Fragment slot="title">
+    <span class="mode-only for-terminal">zsh — claude（plan モード）</span>
+    <span class="mode-only for-desktop">プランパネル</span>
+  </Fragment>
+<span class="line mode-only for-terminal"><span class="sx-com"># Shift+Tab で plan モードへ。編集はまだしない</span></span>
+<span class="line mode-only for-terminal"><span class="prompt cy">&gt;</span> <span class="sx-str">"ログイン画面にパスワード表示のアイコンを追加して"</span></span>
+<span class="line mode-only for-terminal"> </span>
+<span class="line mode-only for-terminal"><span class="sx-dim">  ⎿ </span><span class="sx-fn">read</span> <span class="sx-flag">src/LoginForm.tsx</span> <span class="sx-dim">(編集はしません)</span></span>
+<span class="line mode-only for-terminal"> </span>
+<span class="line mode-only for-terminal"><span class="sx-key">計画</span></span>
+<span class="line mode-only for-terminal"><span class="sx-dim">  1. </span>パスワード欄の右端に目玉アイコンのボタンを置く</span>
+<span class="line mode-only for-terminal"><span class="sx-dim">  2. </span>クリックで input の type を text / password に切り替える</span>
+<span class="line mode-only for-terminal"><span class="sx-dim">  3. </span>表示状態に応じてアイコンを開閉で出し分ける</span>
+<span class="line mode-only for-terminal"> </span>
+<span class="line mode-only for-terminal"><span class="sx-dim">  この計画で進めますか? (承認すると編集モードへ)</span> <span class="caret" aria-hidden="true"></span></span>
+<span class="line mode-only for-desktop"><span class="sx-com"># サイドバーに計画が並ぶ。編集はまだ走らない</span></span>
+<span class="line mode-only for-desktop"><span class="prompt cy">あなた</span>  <span class="sx-str">ログイン画面にパスワード表示のアイコンを追加して</span></span>
+<span class="line mode-only for-desktop"> </span>
+<span class="line mode-only for-desktop"><span class="prompt">Claude</span>  <span class="sx-fn">読み取り</span> <span class="sx-flag">src/LoginForm.tsx</span></span>
+<span class="line mode-only for-desktop"> </span>
+<span class="line mode-only for-desktop"><span class="sx-key">計画</span></span>
+<span class="line mode-only for-desktop"><span class="sx-dim">  ① </span>パスワード欄の右端に目玉アイコンのボタンを置く</span>
+<span class="line mode-only for-desktop"><span class="sx-dim">  ② </span>クリックで type を text / password に切り替える</span>
+<span class="line mode-only for-desktop"><span class="sx-dim">  ③ </span>表示状態に応じてアイコンを出し分ける</span>
+<span class="line mode-only for-desktop"> </span>
+<span class="line mode-only for-desktop"><span class="sx-dim">        計画を承認して実行に進む</span> <span class="caret" aria-hidden="true"></span></span>
+</CodeBlock>
+
+計画を読んで、たとえば「アイコンだけでなくキーボードからも切り替えられるように」と気づいたら、承認する前にその一言を足せます。実装が始まる前なので、追加の指示が**ただ計画に反映されるだけ**——書き直しは発生しません。納得できたら、はじめて承認して実行に移します。
+
+<Callout type="warn">
+  プランモードはあくまで「計画段階」です。ここで提示された手順がそのまま動くわけではなく、<strong>承認して実行モードに移ってから</strong>、実際の編集と <Term id="verification">検証</Term> が走ります。計画を見ただけで完了した気にならないよう注意してください。
+</Callout>
+
+## §4 不安なときは、まずプラン
+
+最後に、習慣として持ち帰ってほしいことを一つ。
+
+**迷ったら、まずプランモード。** これは初心者ほど効きます。慣れていないうちは「この依頼でエージェントが何をするか」が読みきれません。だからこそ、いきなり編集させるより、先に計画を見せてもらう方が安心して進められます。計画を読むこと自体が、Claude Code の動き方を学ぶ近道にもなります。
+
+逆に、ごく小さな修正——「この typo を直して」程度——なら、毎回プランを挟む必要はありません。**タスクが大きい・影響範囲が読めない・触ってほしくない場所がある**。そう感じたときの安全装置として、プランモードを思い出してください。
+
+次章では、エージェントの提案を <Term id="approval-flow">承認フロー</Term> で受け止める——差分を読んで取り込む往復の作法を、もう少し具体的に練習します。

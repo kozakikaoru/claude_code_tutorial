@@ -1,0 +1,189 @@
+---
+/**
+ * index.astro — トップ（コース案内・難易度マップ）
+ * parts.ts と整列済み章から、各部のカードと到達点を自動表示する。
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { parts } from '../data/parts';
+import { getSortedChapters, groupByPart, chapterPath } from '../utils/chapters';
+import { href } from '../utils/url';
+
+const sorted = await getSortedChapters();
+const groups = groupByPart(sorted);
+const chaptersByPart: Record<string, typeof sorted> = Object.fromEntries(
+  groups.map((g) => [g.part.id, g.chapters]),
+);
+
+// 難易度マップ（outline のレベル別到達点）
+const levelMap = [
+  { level: '初級', range: '第0〜1部', can: 'インストールして自然言語で実装させ、安全に試して巻き戻せる' },
+  { level: '初中級', range: '+ 第2部', can: 'CLAUDE.md と設定で「自分仕様」にし、Git まで任せる' },
+  { level: '中級', range: '+ 第3部', can: 'サブエージェント・フック・MCP を使いこなす（実務投入レベル）', star: true },
+  { level: '上級', range: '+ 第4部', can: '複数エージェント並列・自動化・コスト最適化' },
+  { level: 'プロ', range: '+ 第5部', can: 'CI / SDK / チーム運用・ガバナンスまで設計できる' },
+];
+
+// 最初の章（「学習を始める」導線）
+const firstChapter = sorted[0];
+---
+<BaseLayout title="">
+  <main class="home">
+    <section class="hero">
+      <div class="eyebrow">
+        <span class="chap-no">Claude Code Dojo</span>
+        <span class="ln"></span>
+        <span>日本語チュートリアル</span>
+      </div>
+      <h1 class="title">Claude Code <span class="accent">道場</span></h1>
+      <p class="lede">
+        コードを貼って直してもらうのではなく、リポジトリごと任せる——その思想を、初級からプロまで段階的に。
+        ターミナル版・デスクトップアプリ版の両方に対応した、実践的な日本語チュートリアルです。
+      </p>
+      <div class="hero-actions">
+        {firstChapter && (
+          <a class="cta" href={href(chapterPath(firstChapter.id))}>
+            学習を始める
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        )}
+        <a class="cta-ghost" href={href('/glossary')}>用語集を見る</a>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2 class="sec-h">難易度マップ</h2>
+      <p class="sec-sub">「サブエージェントを使いこなせてようやく中級者」。自分の入口を選んでください。</p>
+      <div class="levels">
+        {levelMap.map((l) => (
+          <div class={`level-card${l.star ? ' is-star' : ''}`}>
+            <div class="lv-top">
+              <span class="lv-name">{l.level}</span>
+              <span class="lv-range">{l.range}</span>
+            </div>
+            <p class="lv-can">{l.can}</p>
+            {l.star && <span class="lv-badge">中級の山</span>}
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="block">
+      <h2 class="sec-h">カリキュラム</h2>
+      <p class="sec-sub">全 7 部構成。各部の到達点を示します（本文は順次公開）。</p>
+      <div class="parts">
+        {parts.map((p) => {
+          const chs = chaptersByPart[p.id] ?? [];
+          const first = chs[0];
+          return (
+            <div class="part-card">
+              <div class="pc-head">
+                <span class="pc-no">{p.no}</span>
+                <span class="pc-label">{p.label}</span>
+                <span class="pc-level">{p.level}</span>
+              </div>
+              <p class="pc-aim">{p.aim}</p>
+              {p.goal && <p class="pc-goal"><span>到達点</span>{p.goal}</p>}
+              {first ? (
+                <a class="pc-link" href={href(chapterPath(first.id))}>
+                  この部を読む（{chs.length} 章）
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M10 6l6 6-6 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </a>
+              ) : (
+                <span class="pc-soon">準備中</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+
+    <footer class="foot">
+      <span>Claude Code 道場</span>
+      <span class="sep">·</span>
+      <a href="https://code.claude.com/docs" class="link" rel="noopener noreferrer">公式ドキュメント</a>
+      <span class="sep">·</span>
+      <a href={href('/glossary')} class="link" style="margin-left:auto;">用語集</a>
+    </footer>
+  </main>
+</BaseLayout>
+
+<style>
+  .home { max-width: 940px; margin: 0 auto; padding: 64px clamp(22px, 5vw, 40px) 0; position: relative; z-index: 1; }
+  .hero { margin-bottom: 64px; }
+  .hero .lede { max-width: 64ch; }
+  .hero-actions { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 30px; }
+  .cta {
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 12px 22px; border-radius: 12px;
+    font-weight: 700; color: #241a09;
+    background: linear-gradient(160deg, rgba(245,177,76,.95), var(--amber-deep));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.3), 0 12px 30px -14px var(--amber);
+    transition: transform .18s, box-shadow .18s;
+  }
+  .cta:hover { transform: translateY(-2px); box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 18px 40px -14px var(--amber); }
+  .cta-ghost {
+    display: inline-flex; align-items: center; padding: 12px 22px; border-radius: 12px;
+    color: var(--ink-2); border: 1px solid var(--glass-edge);
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    transition: color .18s, border-color .18s;
+  }
+  .cta-ghost:hover { color: var(--amber); border-color: var(--amber-dim); }
+
+  .block { margin-bottom: 64px; }
+  .sec-h { font-family: var(--font-serif); font-weight: 500; font-size: 26px; color: var(--ink); margin: 0 0 6px; }
+  .sec-sub { color: var(--ink-2); font-size: 14.5px; margin: 0 0 24px; max-width: 60ch; }
+
+  .levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+  .level-card {
+    border-radius: 13px; padding: 16px 18px; position: relative;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(10px) saturate(1.3); backdrop-filter: blur(10px) saturate(1.3);
+    border: 1px solid var(--glass-edge2);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+  }
+  .level-card.is-star { border-color: rgba(245,177,76,.4); box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 0 30px -14px var(--amber); }
+  .lv-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .lv-name { font-family: var(--font-serif); font-weight: 500; font-size: 18px; color: var(--ink); }
+  .is-star .lv-name { color: var(--amber); }
+  .lv-range { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+  .lv-can { font-size: 13px; line-height: 1.6; color: var(--ink-2); margin: 0; }
+  .lv-badge {
+    position: absolute; top: -9px; right: 14px;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+    color: #241a09; background: var(--amber); border-radius: 5px; padding: 2px 8px;
+  }
+
+  .parts { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .part-card {
+    border-radius: 14px; padding: 18px 20px;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(10px) saturate(1.3); backdrop-filter: blur(10px) saturate(1.3);
+    border: 1px solid var(--glass-edge2);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .pc-head { display: flex; align-items: baseline; gap: 10px; }
+  .pc-no { font-family: var(--font-serif); font-style: italic; font-size: 18px; color: var(--amber-dim); }
+  .pc-label { font-family: var(--font-serif); font-weight: 500; font-size: 17px; color: var(--ink); flex: 1 1 auto; }
+  .pc-level {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em;
+    color: var(--ink-2); border: 1px solid var(--rule-2); border-radius: 5px; padding: 2px 7px;
+  }
+  .pc-aim { font-size: 13.5px; line-height: 1.65; color: var(--ink-2); margin: 0; }
+  .pc-goal { font-size: 12.5px; line-height: 1.6; color: var(--ink-3); margin: 0; }
+  .pc-goal span {
+    display: inline-block; font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--cyan); margin-right: 8px;
+  }
+  .pc-link {
+    margin-top: auto; display: inline-flex; align-items: center; gap: 7px;
+    font-size: 13px; font-weight: 500; color: var(--amber);
+    transition: gap .18s;
+  }
+  .pc-link:hover { gap: 11px; }
+  .pc-soon {
+    margin-top: auto; font-family: var(--font-mono); font-size: 11px; color: var(--ink-3);
+    border: 1px dashed var(--rule-2); border-radius: 6px; padding: 4px 9px; align-self: flex-start;
+  }
+</style>

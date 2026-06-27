@@ -1,0 +1,22 @@
+---
+/**
+ * Callout.astro — 注意・補足カード（liquid glass）
+ * 使い方: <Callout>本文…</Callout>。任意で type を渡してアイコン色を変えられる。
+ */
+interface Props {
+  /** info（既定・シアン）/ warn（アンバー） */
+  type?: 'info' | 'warn';
+}
+const { type = 'info' } = Astro.props;
+const iconColor = type === 'warn' ? 'var(--amber)' : 'var(--cyan)';
+---
+<div class="callout">
+  <span class="ic" aria-hidden="true" style={`color:${iconColor}`}>
+    {type === 'warn' ? (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3l9 16H3l9-16z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 10v4M12 17h.01" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+    ) : (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M12 8h.01M11 12h1v4h1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    )}
+  </span>
+  <p class="ct"><slot /></p>
+</div>

@@ -1,0 +1,125 @@
+---
+/**
+ * Progress.astro — 気泡つき進捗メーター（液面 = メニスカス + 気泡 + 読了で泡 / design.md §6.5）
+ * 「その部の中で何章目か」を液面で表す。装飾は CSS のみ。
+ * 読了ボタンは localStorage（ccdojo-done:<part>）に読了章を記録し、押すと液面が上がり泡が立つ。
+ */
+interface Props {
+  partLabel: string;
+  partId: string;
+  /** この章は部内で何章目か（1 始まり） */
+  index: number;
+  /** 部内の総章数 */
+  total: number;
+  /** 読了記録のキーになる章 id */
+  chapterId: string;
+}
+const { partLabel, partId, index, total, chapterId } = Astro.props;
+const initialPct = Math.round((index / total) * 100);
+---
+<div class="progress" data-part={partId} data-total={total} data-index={index} data-chapter={chapterId}>
+  <div class="progress-row">
+    <span class="lab">{partLabel}の進捗</span>
+    <span class="val"><b class="done-count">{index}</b> / {total} 章</span>
+  </div>
+  <div
+    class="glass-meter"
+    role="progressbar"
+    aria-valuenow={index}
+    aria-valuemin="0"
+    aria-valuemax={total}
+    aria-label={`${partLabel}の進捗`}
+  >
+    <div class="liquid" style={`width:${initialPct}%;`}>
+      <span class="surface-sheen"></span>
+      <span class="meniscus"></span>
+      <span class="b" style="left:14%; width:4px; height:4px; animation-duration:3.4s; animation-delay:.2s;"></span>
+      <span class="b" style="left:38%; width:3px; height:3px; animation-duration:4.2s; animation-delay:1.1s;"></span>
+      <span class="b" style="left:62%; width:5px; height:5px; animation-duration:3.8s; animation-delay:2.0s;"></span>
+      <span class="b" style="left:80%; width:3px; height:3px; animation-duration:4.6s; animation-delay:.7s;"></span>
+    </div>
+  </div>
+  <div class="progress-foot">
+    <button class="done-btn" type="button">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4 10-10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="done-lbl">この章を読み終えた</span>
+    </button>
+    <span class="done-hint">押すと液面が上がり、泡がふわっと立ち上ります</span>
+  </div>
+</div>
+
+<!-- 進捗バーの挙動（読了で液面 up + 泡） -->
+<script is:inline>
+  (function () {
+    var RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var root = document.querySelector('.progress[data-part]');
+    if (!root) return;
+    var liquid = root.querySelector('.liquid');
+    var glass = root.querySelector('.glass-meter');
+    var btn = root.querySelector('.done-btn');
+    var lbl = root.querySelector('.done-lbl');
+    var cnt = root.querySelector('.done-count');
+    if (!btn || !liquid || !glass) return;
+
+    var part = root.getAttribute('data-part');
+    var total = parseInt(root.getAttribute('data-total') || '1', 10);
+    var index = parseInt(root.getAttribute('data-index') || '0', 10);
+    var chapter = root.getAttribute('data-chapter') || '';
+    var KEY = 'ccdojo-done:' + part;
+
+    function readSet() {
+      try { return new Set(JSON.parse(localStorage.getItem(KEY) || '[]')); }
+      catch (e) { return new Set(); }
+    }
+    function writeSet(s) {
+      try { localStorage.setItem(KEY, JSON.stringify(Array.from(s))); } catch (e) {}
+    }
+
+    var doneSet = readSet();
+    // 読了数（少なくとも現在地ぶんは満たす）
+    function applyCount() {
+      var n = Math.max(index, doneSet.size);
+      if (n > total) n = total;
+      var pct = (n / total) * 100;
+      liquid.style.width = pct + '%';
+      if (cnt) cnt.textContent = String(n);
+      glass.setAttribute('aria-valuenow', String(n));
+      if (doneSet.has(chapter)) {
+        btn.classList.add('is-done');
+        if (lbl) lbl.textContent = '読了済み';
+      }
+      if (n >= total) {
+        if (lbl && doneSet.has(chapter)) lbl.textContent = 'このコース 完了';
+      }
+    }
+    applyCount();
+
+    function emitBubbles() {
+      if (RM) return;
+      for (var i = 0; i < 9; i++) {
+        var b = document.createElement('span');
+        b.className = 'pop-bubble';
+        var size = 4 + Math.random() * 6;
+        b.style.width = size + 'px';
+        b.style.height = size + 'px';
+        var leftPct = Math.max(4, parseFloat(liquid.style.width) - 4 - Math.random() * 22);
+        b.style.left = leftPct + '%';
+        b.style.setProperty('--dx', Math.random() * 22 - 11 + 'px');
+        b.style.animationDelay = Math.random() * 0.45 + 's';
+        glass.appendChild(b);
+        (function (node) { setTimeout(function () { node.remove(); }, 2100); })(b);
+      }
+    }
+
+    btn.addEventListener('click', function () {
+      if (!doneSet.has(chapter)) {
+        doneSet.add(chapter);
+        writeSet(doneSet);
+        btn.classList.add('is-done');
+        if (lbl) lbl.textContent = '読了済み';
+        applyCount();
+      }
+      emitBubbles();
+    });
+  })();
+</script>

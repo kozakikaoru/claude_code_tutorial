@@ -1,0 +1,43 @@
+---
+/**
+ * TermScript.astro — 用語ツールチップの挙動（タップ対応 + 端クランプ / design.md §4.3 / R12）
+ * 全ページに 1 つ置く小さな inline 島。
+ *   - モバイル: タップで open、他を閉じる、外側タップ/Esc で閉じる、Enter/Space 対応。
+ *   - 画面端で pop が見切れる場合は clamp-left/right を付けて寄せる。
+ */
+---
+<script is:inline>
+  (function () {
+    var terms = document.querySelectorAll('.term');
+
+    // 画面端での簡易クランプ: pop が左右にはみ出しそうなら寄せる
+    function clamp(t) {
+      t.classList.remove('clamp-left', 'clamp-right');
+      var r = t.getBoundingClientRect();
+      var vw = window.innerWidth;
+      var half = 154; // pop 幅 308 の半分の目安
+      if (r.left + r.width / 2 - half < 8) t.classList.add('clamp-left');
+      else if (r.left + r.width / 2 + half > vw - 8) t.classList.add('clamp-right');
+    }
+
+    terms.forEach(function (t) {
+      t.addEventListener('mouseenter', function () { clamp(t); });
+      t.addEventListener('focus', function () { clamp(t); });
+      t.addEventListener('click', function (e) {
+        e.stopPropagation();
+        clamp(t);
+        var wasOpen = t.classList.contains('open');
+        document.querySelectorAll('.term.open').forEach(function (o) { o.classList.remove('open'); });
+        if (!wasOpen) t.classList.add('open');
+      });
+      t.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); t.click(); }
+        if (e.key === 'Escape') t.classList.remove('open');
+      });
+    });
+
+    document.addEventListener('click', function () {
+      document.querySelectorAll('.term.open').forEach(function (o) { o.classList.remove('open'); });
+    });
+  })();
+</script>

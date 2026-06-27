@@ -1,0 +1,97 @@
+---
+/**
+ * BaseLayout.astro — html 骨格・head・liquid 背景・FOUC 回避（design.md §3.4 / §5）
+ *
+ * FOUC 回避の肝（§3.4）:
+ *   - head 末尾の is:inline 同期スクリプトで localStorage を読み html[data-mode-pref] を確定。
+ *   - body 直後の is:inline スクリプトで body.dataset.mode を即セット（描画前の最短点）。
+ *   - 通常の script タグ（defer/バンドル）は使わない。必ず is:inline。
+ * JS 無効でも body は SSR 既定で data-mode="terminal" を持ち、一方の本文が必ず読める（R6）。
+ */
+import { asset } from '../utils/url';
+import LiquidBackground from '../components/LiquidBackground.astro';
+import Filters from '../components/svg/Filters.astro';
+import '../styles/tokens.css';
+import '../styles/base.css';
+import '../styles/liquid.css';
+import '../styles/prose.css';
+import '../styles/components.css';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+const { title, description } = Astro.props;
+const fullTitle = title ? `${title} — Claude Code 道場` : 'Claude Code 道場';
+const desc =
+  description ??
+  'Claude Code の使い方を初級からプロまで、ターミナル版／デスクトップアプリ版の両モードで学べる日本語チュートリアル。';
+---
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={desc} />
+    <link rel="icon" type="image/svg+xml" href={asset('/favicon.svg')} />
+
+    <!-- Google Fonts（preconnect + display=swap で CLS 抑制 / design.md §5.1） -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- FOUC 回避(0): JS 有効を最優先で宣言（ADR-003 §5.3）。
+         ステップ 1 枚化 CSS は html.js のときだけ効くので、描画前に付けて
+         「全 step 縦表示 → 1 枚化」のチラつきを防ぐ。JS 無効ならクラスが付かず縦表示にフォールバック。 -->
+    <script is:inline>
+      document.documentElement.classList.add('js');
+    </script>
+
+    <!-- FOUC 回避(1): 描画前に <html data-mode-pref> を確定（is:inline = 同期実行） -->
+    <script is:inline>
+      (function () {
+        try {
+          var m = localStorage.getItem('ccdojo-mode');
+          if (m !== 'terminal' && m !== 'desktop') m = 'terminal';
+          document.documentElement.setAttribute('data-mode-pref', m);
+        } catch (e) {
+          document.documentElement.setAttribute('data-mode-pref', 'terminal');
+        }
+      })();
+    </script>
+
+    <!-- backdrop-filter 未対応環境ではガラスを不透明寄りに（R4。早期に同期実行） -->
+    <script is:inline>
+      (function () {
+        var ok =
+          window.CSS &&
+          CSS.supports &&
+          (CSS.supports('backdrop-filter', 'blur(1px)') ||
+            CSS.supports('-webkit-backdrop-filter', 'blur(1px)'));
+        if (!ok) {
+          document.documentElement.style.setProperty('--glass', 'rgba(34,34,41,.94)');
+          document.documentElement.style.setProperty('--glass-2', 'rgba(40,40,49,.96)');
+        }
+      })();
+    </script>
+  </head>
+  <body data-mode="terminal">
+    <!-- FOUC 回避(2): body 生成直後に pref を body.dataset.mode へ反映（チラつき潰し） -->
+    <script is:inline>
+      (function () {
+        var pref = document.documentElement.getAttribute('data-mode-pref') || 'terminal';
+        document.body.setAttribute('data-mode', pref);
+      })();
+    </script>
+
+    <!-- 液体の海 + SVG フィルタ（全ページ共通の土台） -->
+    <LiquidBackground />
+    <Filters />
+
+    <slot />
+  </body>
+</html>

@@ -1,0 +1,44 @@
+# GitHub Pages デプロイ（design.md §7.2）
+# 公式 withastro/action で依存インストール→ビルド→artifact アップロードまで内包する。
+# リポジトリ設定 → Pages → Source は "GitHub Actions" を選ぶこと（"Deploy from a branch" ではない）。
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時実行は最新のみ（古い実行はキャンセル）
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build with Astro
+        uses: withastro/action@v3
+        # 既定で npm を検出しビルドする。Node は LTS を使用。
+        # with:
+        #   path: .
+        #   node-version: 22
+        #   package-manager: npm
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
