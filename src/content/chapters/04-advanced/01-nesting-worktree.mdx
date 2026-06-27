@@ -1,0 +1,133 @@
+---
+title: サブエージェントの入れ子・worktree 並列
+part: advanced
+order: 2
+level: 上級
+summary: 1段のサブエージェントでは足りない規模を、二つの軸でさばきます。タスクを階層に割る「入れ子」と、ブランチをフォルダーごと分ける「worktree 並列」。どちらも大きな仕事を安全に分割する道具です。
+readingTime: 9
+updated: 2026-06-27
+---
+
+前章では複数セッションを束ねる <Term id="agent-team">エージェントチーム</Term> の全体像を見ました。この章はそこから一歩踏み込み、規模をさばく二つの軸を扱います。タスクを **階層に割る** 入れ子と、ブランチを **物理的に分ける** worktree です。どちらも「大きすぎて1段では回らない仕事」を分割するための道具です。
+
+<Callout>
+  この章は <strong>上級</strong> です。サブエージェント（第3部）と前章のエージェントチームを前提に進めます。新機能の数値仕様は版で動くため、本文に「要確認」を添えてある箇所は、お使いの版で実際の上限をご確認ください。
+</Callout>
+
+## §1 1段では足りなくなるとき
+
+サブエージェントは「メインの会話から1段下に切り出す」仕組みでした。たいていはこれで足ります。ですが、切り出した仕事自体がさらに大きいことがあります。
+
+たとえば「機能Aを実装する」というサブタスクが、内部で「調査」「実装」「テスト」に分かれるような場合です。1人のサブエージェントに全部抱えさせると、結局そのコンテキストが膨らみ、最初の動機だった <Term id="context-window">コンテキストウィンドウ</Term> の節約が崩れてしまいます。
+
+<Callout>
+  ここで効くのが、サブエージェントが <strong>さらに別のサブエージェントを呼ぶ</strong> 構造です。大きな仕事を、階層をたどって段階的に小さくしていきます。
+</Callout>
+
+## §2 入れ子サブエージェント（最大3階層）
+
+サブエージェントが子のサブエージェントを呼び、その子がまた孫を呼ぶ——この階層構造を <Term id="nested-subagent">入れ子サブエージェント</Term> と呼びます。親→子→孫と段階的にタスクを分割できます。
+
+<CodeBlock title="入れ子の階層イメージ" badge="図">
+<span class="line"><span class="sx-fn">メイン会話</span></span>
+<span class="line"><span class="sx-dim">  └ </span><span class="sx-key">サブA</span><span class="sx-dim">（1階層目: 機能の実装）</span></span>
+<span class="line"><span class="sx-dim">       └ </span><span class="sx-key">サブA-1</span><span class="sx-dim">（2階層目: 調査）</span></span>
+<span class="line"><span class="sx-dim">       └ </span><span class="sx-key">サブA-2</span><span class="sx-dim">（2階層目: テスト作成）</span></span>
+</CodeBlock>
+
+<Callout type="warn">
+  深さには上限があります。2026年6月時点では <strong>最大3階層</strong> までとされます（<b>※最新版で要確認</b>）。際限なく深くはできない前提で設計してください。
+</Callout>
+
+## §3 深くするより「浅く広く」
+
+階層を深くできると分かると、つい何段も重ねたくなります。ですが、深さは諸刃です。階層が増えるほど、結果が要約されて上に返るたびに情報が薄まり、どこで何が起きているか追いにくくなります。
+
+実務での目安は、**深さは浅く、広さで稼ぐ** こと。1つの親が複数の子に並行して投げる「浅く広い」形のほうが、見通しもよく結果も安定します。3階層という上限は「使い切る目標」ではなく「これ以上は設計を疑え」という天井だと捉えてください。
+
+## §4 per-agent のコストと権限
+
+入れ子で動く各エージェントは、それぞれ別個に動きます。だからこそ、エージェント単位での管理が用意されています。2026年6月時点では次の3つが挙がっています。
+
+| 項目 | 内容 |
+|---|---|
+| コスト内訳 | エージェント／タスクごとの <Term id="token">トークン</Term> 消費を個別に把握できる |
+| スコープ権限 | 各エージェントに <Term id="least-privilege">最小権限</Term> だけを与えられる |
+| ストリーミングログ | 各エージェントの動きを逐次ログで追える（beta） |
+
+<Callout type="warn">
+  これらは比較的新しい機能で、提供状況や名称が変わりえます（<b>※最新版で要確認</b>）。特にストリーミングログは beta 扱いです。
+</Callout>
+
+## §5 fallbackModel で止めない
+
+並列で多くのエージェントを動かすと、特定の <Term id="models">モデル</Term> が混雑や上限到達で一時的に使えないことがあります。そこで効くのが <Term id="fallback-model">fallbackModel</Term> です。
+
+指定したモデルが使えないとき、**控えのモデルに自動で切り替えて**作業を続けます。控えは複数を連ねて指定でき、2026年6月時点では **最大3つ** までとされます（<b>※最新版で要確認</b>）。
+
+<Callout>
+  考え方は単純です。「<strong>本命が空いていなければ次善で進める</strong>」。長時間・大量の並列を止めないための保険であって、品質より継続を優先したい場面で効きます。
+</Callout>
+
+## §6 もう一つの軸＝worktree 並列
+
+ここから話が変わります。エージェントを階層で分けるのが入れ子なら、**作業場所そのものを分ける**のが <Term id="worktree">worktree</Term> です。
+
+同じ <Term id="branch">ブランチ</Term> を共有したまま複数のセッションを走らせると、お互いの編集が衝突します。Git の worktree は、同じリポジトリの別ブランチを **別フォルダーとして同時に開く** 仕組みです。ブランチを物理的に分けるので、並列セッションが互いを踏みません。
+
+## §7 worktree を切ってみる
+
+worktree はターミナル版でもデスクトップ版でも使えますが、土台は同じ Git コマンドです。
+
+<ModeBlock mode="terminal">
+基本は `git worktree add` でフォルダーとブランチを増やすだけです。あとは各フォルダーで別々に `claude` を起動すれば、並列で安全に走らせられます。
+
+<CodeBlock title="zsh — git worktree" badge="CLI">
+<span class="line"><span class="sx-com"># feature-a 用の作業場所を ../wt-a に作る</span></span>
+<span class="line"><span class="prompt">$</span> git worktree add <span class="sx-flag">../wt-a</span> <span class="sx-key">feature-a</span></span>
+<span class="line"><span class="prompt">$</span> cd <span class="sx-flag">../wt-a</span> &amp;&amp; <span class="sx-key">claude</span></span>
+</CodeBlock>
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+デスクトップ版でも worktree のフォルダーを開けば同じことができます。強みは、並列セッションの **コスト内訳やログを画面で見比べられる** こと。どのブランチのセッションがいま動いているか、消費がどれだけかを一覧で追いながら回せます。
+</ModeBlock>
+
+<Callout>
+  worktree はあくまで Git の機能です。Claude Code が新しく作るものではなく、<strong>既存の Git の力を並列運用に活かす</strong>という関係だと理解しておくと混乱しません。
+</Callout>
+
+## §8 モノレポは sparsePaths で軽く
+
+worktree を <Term id="monorepo">モノレポ</Term>（巨大な1リポジトリ）で使うと、別の問題が出ます。フォルダーを増やすたびに巨大なツリー全体を抱え込み、<Term id="token">トークン</Term> もディスクも重くなるのです。
+
+そこで <Term id="sparse-paths">worktree.sparsePaths</Term> を使います。worktree に **必要なパスだけを読み込ませる** 設定で、関係ないディレクトリを切り離せます。
+
+<CodeBlock title="必要なパスだけ読む（イメージ）" badge="設定">
+<span class="line"><span class="sx-com"># この worktree では packages/web 配下だけを見る</span></span>
+<span class="line"><span class="sx-key">worktree.sparsePaths:</span></span>
+<span class="line"><span class="sx-dim">  - </span><span class="sx-flag">packages/web</span></span>
+</CodeBlock>
+
+巨大リポジトリ全体ではなく担当領域だけに視野を絞れるので、コンテキストもコストも抑えられます。
+
+## §9 二つの軸の使い分け
+
+この章で出た二つの軸は、解決する問題が違います。最後に整理します。
+
+| 軸 | 何を分けるか | 効くのは |
+|---|---|---|
+| <Term id="nested-subagent">入れ子</Term> | タスク（論理的な分割） | 1つの仕事が内部でさらに細分化するとき |
+| <Term id="worktree">worktree</Term> | 作業場所（物理的な分割） | 複数ブランチを同時に進めて編集衝突を避けたいとき |
+
+両者は排他ではありません。worktree で分けた各作業場所の中で、さらに入れ子のサブエージェントを動かす——というように **重ねて使える** ものです。
+
+## §10 この章のまとめ
+
+- **入れ子** — サブエージェントが子・孫を呼ぶ階層構造。最大3階層（<b>要確認</b>）。深くするより **浅く広く**。
+- **per-agent 管理** — コスト内訳・スコープ権限・ストリーミングログ（beta）でエージェント単位に把握する。
+- **fallbackModel** — 本命が使えないとき控えに自動切替。最大3つ（<b>要確認</b>）。並列を止めない保険。
+- **worktree** — ブランチをフォルダーごと分けて並列。編集衝突を物理的に防ぐ Git の機能。
+- **sparsePaths** — モノレポで必要パスだけ読み、コンテキストとコストを抑える。
+
+規模をさばく道具がそろいました。次章では、ここで触れた <Term id="token">トークン</Term> とコストを正面から扱い、<Term id="fallback-model">fallbackModel</Term> やモデルルーティングを **コスト最適化** の視点で組み立てます。

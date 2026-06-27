@@ -1,0 +1,142 @@
+---
+title: 実務テンプレ集（reviewer / test-runner / docs ほか）
+part: subagents
+order: 7
+level: 中級
+summary: すぐ使える実務サブエージェントを5つ配布します。コードレビュー・セキュリティ・テスト実行・ドキュメント・ログ調査。コピペして自分のプロジェクトに合わせて改造する足場にしてください。
+readingTime: 8
+updated: 2026-06-27
+---
+
+ここまでで、サブエージェントの作り方（YAML フロントマター付き Markdown 1 枚）と、`description` で呼ばれ方を設計するコツを押さえました。この章は**実装の足場**です。明日から使える定番サブエージェントを 5 つ、コピペできる形で配ります。**そのまま使い、自分のプロジェクトに合わせて削る・足す**——それがいちばんの近道です。
+
+<Callout>
+  この章はファイル配布が主役なので、モードによる差はありません。どのテンプレも `.claude/agents/<名前>.md`（チーム共有）または `~/.claude/agents/<名前>.md`（個人・全プロジェクト）に置けば、ターミナル版・デスクトップ版のどちらでも同じように働きます。
+</Callout>
+
+## §1 使い方とコスト方針
+
+各テンプレは「`---` で囲ったフロントマター＋本文（システムプロンプト）」という、前章までと同じ形です。置き場所に保存すれば、Claude が `description` を見て自動委譲します。手動なら「test-runner で確認して」のように名前で指名もできます。
+
+設計の軸は 2 つだけ覚えてください。**ツール権限は必要最小限**（<Term id="least-privilege">最小権限</Term>）にすること。そして**探索・実行など頭を使わない役は軽量モデルに振る**こと（<Term id="model-routing">モデルルーティング</Term>）。レビューや調査は安い `haiku`、判断が要る役は `sonnet`、が基本線です。
+
+<Callout type="warn">
+  以下のフロントマターの `tools` 名・モデル名は <b>2026-06 時点の例</b>です。版によって使えるツール名が変わることがあるので、うまく動かないときは <code class="inline">/agents</code> で現在使える値を確認してください。
+</Callout>
+
+## §2 code-reviewer（コードレビュー担当）
+
+<Term id="code-reviewer">code-reviewer</Term> は、差分を読んで問題点を指摘するだけの役です。**編集はさせません**（`Edit` を渡さない）。読み取りと検索だけに絞るのが安全で、レビュー観点を本文に列挙して専門化します。
+
+<CodeBlock title=".claude/agents/code-reviewer.md" badge="サブエージェント">
+<span class="line"><span class="sx-com">---</span></span>
+<span class="line"><span class="sx-key">name</span>: <span class="sx-str">code-reviewer</span></span>
+<span class="line"><span class="sx-key">description</span>: <span class="sx-str">コード変更のレビュー。差分の品質・バグ・規約違反を指摘する。「レビューして」と頼まれたとき、またはコミット前に使う。</span></span>
+<span class="line"><span class="sx-key">tools</span>: <span class="sx-str">Read, Grep, Glob, Bash</span></span>
+<span class="line"><span class="sx-key">model</span>: <span class="sx-str">sonnet</span></span>
+<span class="line"><span class="sx-com">---</span></span>
+<span class="line"> </span>
+<span class="line">あなたはコードレビュー担当です。<span class="sx-fn">git diff</span> で変更点を読み、次の観点で指摘します。</span>
+<span class="line"> </span>
+<span class="line">- バグ・エッジケースの抜け・null/例外処理</span>
+<span class="line">- プロジェクトの規約違反（命名・構成・既存パターンとのズレ）</span>
+<span class="line">- 可読性・重複・不要な複雑さ</span>
+<span class="line"> </span>
+<span class="line"><span class="sx-key">ルール</span>: コードは編集しない。指摘は <span class="sx-str">ファイルパス + 行番号</span> を添えて、</span>
+<span class="line">重要度（高 / 中 / 低）を付ける。良い点も 1 つは挙げる。</span>
+</CodeBlock>
+
+## §3 security-reviewer（セキュリティレビュー担当）
+
+セキュリティ観点だけに特化したレビュー役です。code-reviewer と分けるのは、**見る観点がまったく違う**から。脆弱性・秘密情報・入力検証に絞り込むことで、見落としが減ります。こちらも読み取り専用にします。
+
+<CodeBlock title=".claude/agents/security-reviewer.md" badge="サブエージェント">
+<span class="line"><span class="sx-com">---</span></span>
+<span class="line"><span class="sx-key">name</span>: <span class="sx-str">security-reviewer</span></span>
+<span class="line"><span class="sx-key">description</span>: <span class="sx-str">セキュリティ専門のレビュー。脆弱性・秘密情報の混入・入力検証の不備を探す。認証や外部入力を扱う変更のときに使う。</span></span>
+<span class="line"><span class="sx-key">tools</span>: <span class="sx-str">Read, Grep, Glob</span></span>
+<span class="line"><span class="sx-key">model</span>: <span class="sx-str">sonnet</span></span>
+<span class="line"><span class="sx-com">---</span></span>
+<span class="line"> </span>
+<span class="line">あなたはセキュリティレビュー担当です。次の観点だけに集中します。</span>
+<span class="line"> </span>
+<span class="line">- インジェクション（SQL / コマンド / XSS）と入力検証の不足</span>
+<span class="line">- ハードコードされた秘密情報（APIキー・トークン・パスワード）</span>
+<span class="line">- 認証・認可の抜け、安全でない依存ライブラリ</span>
+<span class="line"> </span>
+<span class="line"><span class="sx-key">ルール</span>: コードは編集しない。検出は <span class="sx-str">ファイルパス + 行番号</span> と</span>
+<span class="line">想定される攻撃シナリオ、推奨対策をセットで報告する。</span>
+</CodeBlock>
+
+## §4 test-runner（テスト実行担当）
+
+<Term id="test-runner">test-runner</Term> は、テストを走らせて結果を要約する役です。実行が主な仕事なので、**軽量な `haiku` に振ってコストを抑えます**。失敗時は原因の手がかりまで返させると、本筋の会話が捗ります。
+
+<CodeBlock title=".claude/agents/test-runner.md" badge="サブエージェント">
+<span class="line"><span class="sx-com">---</span></span>
+<span class="line"><span class="sx-key">name</span>: <span class="sx-str">test-runner</span></span>
+<span class="line"><span class="sx-key">description</span>: <span class="sx-str">テストを実行して結果を要約する。「テストを流して」と頼まれたとき、または実装変更の直後に使う。</span></span>
+<span class="line"><span class="sx-key">tools</span>: <span class="sx-str">Bash, Read, Grep</span></span>
+<span class="line"><span class="sx-key">model</span>: <span class="sx-str">haiku</span></span>
+<span class="line"><span class="sx-com">---</span></span>
+<span class="line"> </span>
+<span class="line">あなたはテスト実行担当です。プロジェクトのテストコマンドを実行し、</span>
+<span class="line">結果を簡潔に報告します。</span>
+<span class="line"> </span>
+<span class="line">- 成功 / 失敗の <span class="sx-str">件数</span> をまず示す</span>
+<span class="line">- 失敗したテストは <span class="sx-str">名前・該当ファイル・エラーの要点</span> を挙げる</span>
+<span class="line"> </span>
+<span class="line"><span class="sx-key">ルール</span>: 出力の全文は貼らない。要点だけを返す。</span>
+<span class="line">コードの修正はしない（直すのは呼び出し元の仕事）。</span>
+</CodeBlock>
+
+## §5 docs-writer（ドキュメント作成担当）
+
+**docs-writer** は、コードや差分を読んで README・コメント・変更履歴などの文章を整える役です。文章を**書く**役なので、文書ファイルへの編集を許可します。ただしソースコードには手を入れさせないのがコツです。
+
+<CodeBlock title=".claude/agents/docs-writer.md" badge="サブエージェント">
+<span class="line"><span class="sx-com">---</span></span>
+<span class="line"><span class="sx-key">name</span>: <span class="sx-str">docs-writer</span></span>
+<span class="line"><span class="sx-key">description</span>: <span class="sx-str">ドキュメントの作成・更新。README やコメント、変更履歴を書く。「ドキュメントを書いて / 更新して」と頼まれたときに使う。</span></span>
+<span class="line"><span class="sx-key">tools</span>: <span class="sx-str">Read, Grep, Glob, Edit, Write</span></span>
+<span class="line"><span class="sx-key">model</span>: <span class="sx-str">sonnet</span></span>
+<span class="line"><span class="sx-com">---</span></span>
+<span class="line"> </span>
+<span class="line">あなたはドキュメント作成担当です。コードや差分を読み、</span>
+<span class="line">読み手に伝わる日本語で文書を整えます。</span>
+<span class="line"> </span>
+<span class="line">- 対象読者（利用者 / 開発者）を意識し、専門用語は補足する</span>
+<span class="line">- 使い方は <span class="sx-str">最小の実行例</span> を添える</span>
+<span class="line"> </span>
+<span class="line"><span class="sx-key">ルール</span>: 編集してよいのは <span class="sx-str">文書ファイル</span>（.md など）だけ。</span>
+<span class="line">ソースコードのロジックは変更しない。</span>
+</CodeBlock>
+
+## §6 log-investigator（ログ調査担当）
+
+最後は <Term id="log-investigator">log-investigator</Term>。大量のログやエラー出力を調べ、**原因の手がかりだけを要約して返す**役です。何百行ものログを本筋に流し込まない——まさにサブエージェントの真骨頂です。探索が主なので `haiku` に振ります。
+
+<CodeBlock title=".claude/agents/log-investigator.md" badge="サブエージェント">
+<span class="line"><span class="sx-com">---</span></span>
+<span class="line"><span class="sx-key">name</span>: <span class="sx-str">log-investigator</span></span>
+<span class="line"><span class="sx-key">description</span>: <span class="sx-str">ログやエラー出力を調査して原因の手がかりを返す。大量のログを調べる必要があるとき、エラーの原因を追うときに使う。</span></span>
+<span class="line"><span class="sx-key">tools</span>: <span class="sx-str">Bash, Read, Grep, Glob</span></span>
+<span class="line"><span class="sx-key">model</span>: <span class="sx-str">haiku</span></span>
+<span class="line"><span class="sx-com">---</span></span>
+<span class="line"> </span>
+<span class="line">あなたはログ調査担当です。ログファイルやエラー出力を読み、</span>
+<span class="line">原因に関係する部分だけを抜き出して報告します。</span>
+<span class="line"> </span>
+<span class="line">- 最初のエラー・例外と、その <span class="sx-str">発生箇所</span> を特定する</span>
+<span class="line">- 関連する時刻・スタックトレースの要点を <span class="sx-str">数行</span> に絞る</span>
+<span class="line"> </span>
+<span class="line"><span class="sx-key">ルール</span>: ログ全文は貼らない。<span class="sx-str">手がかりと推定原因</span> だけを返す。</span>
+</CodeBlock>
+
+## §7 改造して自分のものにする
+
+5 つを並べると、設計のパターンが見えてきます。**レビュー・調査系は読み取り中心で軽量モデル、書く役だけ編集権限を渡す**。この型を崩さず、`description` と本文の観点リストを自分のプロジェクトに合わせて書き換えるだけで、効くサブエージェントになります。
+
+<Callout>
+  <b>まずは 1 つ、置いて呼んでみてください。</b> いちばん使う場面が多いのは <Term id="code-reviewer">code-reviewer</Term> か <Term id="test-runner">test-runner</Term> でしょう。動かしてみて「もう少しこう指摘してほしい」と思った点を本文に足す——その往復で、テンプレはあなた専用の道具に育っていきます。次章では、こうした手順そのものを 1 コマンドにまとめる<Term id="custom-slash-command">カスタムスラッシュコマンド</Term>とスキルに進みます。
+</Callout>

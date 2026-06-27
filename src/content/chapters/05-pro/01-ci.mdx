@@ -1,0 +1,112 @@
+---
+title: CI 連携と自動 PR レビュー
+part: pro
+order: 2
+level: プロ
+summary: Claude を CI に組み込み、PR レビューや issue トリアージを自動で回します。公式 GitHub Action のセットアップから、スケジュール実行、GitLab CI 対応までを押さえます。
+readingTime: 9
+updated: 2026-06-27
+---
+
+前章では <Term id="headless">ヘッドレス</Term> 実行で Claude を「コマンド部品」にしました。この章ではそれを一段進め、<Term id="github-actions">GitHub Actions</Term> などの CI に組み込みます。狙いは、**PR が来たら自動でレビューが付く**、**issue を自動で仕分けする**——人手を介さず回り続ける仕組みです。
+
+<Callout>
+  土台は前章と同じヘッドレス実行です。公式 GitHub Action は <Term id="claude-p">claude -p</Term> 相当の処理をラップしたもので、それを CI のイベントで起動しているだけ、と捉えると全体像が掴めます。
+</Callout>
+
+## §1 CI 連携で何が変わるか
+
+これまでは自分が `claude` を起動して指示していました。CI 連携では、**GitHub 側のイベント**（PR 作成・コメント・スケジュール）が引き金になり、Claude が自動で動きます。
+
+代表的な用途は次の三つです。
+
+- **自動 PR レビュー** — PR が開かれたら差分を読み、指摘をコメントする。
+- **issue トリアージ** — 新しい issue にラベル付けや要約を付ける。
+- **定期実行** — 毎晩 CI の失敗を解析する、週次で依存関係を監査する。
+
+人が見る前の一次対応を任せ、最終判断だけ人が持つ——これが CI 連携の基本姿勢です。
+
+## §2 公式 Action をセットアップする
+
+GitHub では公式の <Term id="claude-code-action">claude-code-action</Term> を使います。導入は手書きより、対話セットアップが速くて確実です。`claude` を起動し、リポジトリのルートで次を実行します。
+
+<CodeBlock title="zsh — install-github-app" badge="操作">
+<span class="line"><span class="sx-com"># リポジトリのルートで対話セットアップを起動</span></span>
+<span class="line"><span class="prompt cy">&gt;</span> <span class="sx-key">/install-github-app</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">  GitHub App の認可と APIキーの登録を案内に沿って進めます…</span></span>
+</CodeBlock>
+
+これで GitHub App の認可と、ワークフローの雛形配置、API キーの登録（後述の Secrets）までを案内に沿って済ませられます。手で YAML を書く前に、まずこれを試してください。
+
+## §3 ワークフローの最小形
+
+セットアップで置かれるワークフローは、おおむね次の形です。PR が開かれたときに Claude を呼びます。下のコード中で二重波カッコに囲まれた箇所は、GitHub Actions が実行時に値を差し込む記法です。
+
+<CodeBlock title=".github/workflows/claude.yml" badge="YAML">
+<span class="line"><span class="sx-key">on</span>:</span>
+<span class="line">  <span class="sx-key">pull_request</span>:</span>
+<span class="line">    <span class="sx-key">types</span>: [<span class="sx-str">opened</span>, <span class="sx-str">synchronize</span>]</span>
+<span class="line"> </span>
+<span class="line"><span class="sx-key">jobs</span>:</span>
+<span class="line">  <span class="sx-key">review</span>:</span>
+<span class="line">    <span class="sx-key">runs-on</span>: <span class="sx-str">ubuntu-latest</span></span>
+<span class="line">    <span class="sx-key">steps</span>:</span>
+<span class="line">      - <span class="sx-key">uses</span>: <span class="sx-str">anthropics/claude-code-action@v1</span></span>
+<span class="line">        <span class="sx-key">with</span>:</span>
+<span class="line">          <span class="sx-key">anthropic_api_key</span>: <span class="sx-str">&#36;&#123;&#123; secrets.ANTHROPIC_API_KEY &#125;&#125;</span></span>
+</CodeBlock>
+
+`anthropics/claude-code-action@v1` を呼び、API キーを渡すだけ。レビューの観点などはこの下に指示として足していきます。
+
+## §4 API キーは Secrets に隠す
+
+ワークフローの `secrets.ANTHROPIC_API_KEY` は、リポジトリの **Secrets** に登録した値を指します。キーをコードに直接書いてはいけません。リポジトリの Settings から登録します。
+
+<CodeBlock title="GitHub — Secrets 登録場所" badge="操作">
+<span class="line"><span class="sx-com"># リポジトリの Settings から辿る</span></span>
+<span class="line"><span class="sx-dim">Settings &gt; Secrets and variables &gt; Actions &gt; New repository secret</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-key">Name</span>:   <span class="sx-str">ANTHROPIC_API_KEY</span></span>
+<span class="line"><span class="sx-key">Secret</span>: <span class="sx-str">sk-ant-...</span></span>
+</CodeBlock>
+
+<Callout type="warn">
+  <b>キーは絶対にコミットしない。</b> ワークフロー YAML に直書きすると履歴に残り、流出します。必ず Secrets を経由させてください。万一漏らした場合はコンソールから即座に無効化します。
+</Callout>
+
+## §5 スケジュール実行（cron）
+
+PR イベントだけでなく、**時刻指定**でも起動できます。`on.schedule` に <Term id="cron">cron</Term> を書きます。下は毎日 3 時（UTC）に走らせる例です。
+
+<CodeBlock title=".github/workflows/nightly.yml" badge="YAML">
+<span class="line"><span class="sx-key">on</span>:</span>
+<span class="line">  <span class="sx-key">schedule</span>:</span>
+<span class="line">    <span class="sx-com"># 「分 時 日 月 曜日」の5フィールド</span></span>
+<span class="line">    - <span class="sx-key">cron</span>: <span class="sx-str">"0 3 &#42; &#42; &#42;"</span></span>
+</CodeBlock>
+
+`0 3 &#42; &#42; &#42;` は「毎日 3:00」。夜間の CI 失敗解析や、週次の依存監査などに向きます。タイムゾーンは UTC 基準なので、日本時間で考えるときは 9 時間のずれに注意してください。
+
+## §6 GitLab CI でも動かす
+
+GitHub だけでなく **GitLab CI/CD** でも Claude を組み込めます。専用 Action はありませんが、ヘッドレス実行を `.gitlab-ci.yml` のジョブとして呼ぶ形です。
+
+<CodeBlock title=".gitlab-ci.yml" badge="YAML">
+<span class="line"><span class="sx-key">claude-review</span>:</span>
+<span class="line">  <span class="sx-key">script</span>:</span>
+<span class="line">    <span class="sx-com"># 変更ファイルをレビューさせる（前章のヘッドレス実行）</span></span>
+<span class="line">    - <span class="sx-str">git diff origin/main --name-only | claude -p "セキュリティ観点でレビュー"</span></span>
+</CodeBlock>
+
+考え方は GitHub と同じです。**CI のイベントでヘッドレスの `claude -p` を起動する**——この一点を押さえれば、基盤を問わず応用できます。API キーは GitLab の CI/CD 変数に登録します。
+
+## §7 コスト事故に注意
+
+CI 連携は強力ですが、**自動で何度も走る**ぶんコストが膨らみやすい領域です。PR のたび、毎晩のスケジュールごとに API を消費します。
+
+<Callout type="warn">
+  <b>2026/6/15 以降、自動化経由の利用は別枠の月次クレジットを消費します。</b> GitHub Actions や `claude -p` は通常のサブスク枠ではなく専用の枠から引かれます。トリガー条件を絞る・対象差分を限定するなど、回りすぎない設計を最初から入れておきましょう。詳しくは課金とガバナンスの章で扱います。
+</Callout>
+
+ここまでで、Claude を CI に常駐させて自動でレビュー・トリアージ・定期実行する形ができました。次章では、CI の土台でもある <Term id="agent-sdk">Claude Agent SDK</Term> で独自エージェントを組む入口に進みます。

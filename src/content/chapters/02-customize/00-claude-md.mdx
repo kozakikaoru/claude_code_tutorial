@@ -1,0 +1,118 @@
+---
+title: CLAUDE.md でルールを教える
+part: customize
+order: 1
+level: 初中級
+summary: プロジェクト固有のルールを CLAUDE.md に書いておくと、毎セッション自動で読まれます。「優秀だが事情を知らない新卒部下」に社内ルールを渡す——その第一歩です。
+readingTime: 8
+updated: 2026-06-27
+---
+
+第1部で Claude Code を **動かせる** ようになりました。ここからは、それを **自分のプロジェクト仕様に合わせる** 段階です。最初の道具が <Term id="claude-md">CLAUDE.md</Term>。プロジェクトのルートに置く 1 枚の Markdown で、毎回の指示をぐっと減らせます。
+
+<Callout>
+  <b>新卒部下に渡す「業務マニュアル」だと思ってください。</b> 地頭は良くても、あなたのリポジトリの規約は教えなければ分かりません。CLAUDE.md はその規約を **常時** 渡しておく場所です。
+</Callout>
+
+## §1 CLAUDE.md とは何か
+
+<Term id="claude-md">CLAUDE.md</Term> は、プロジェクトのルートに置く Markdown ファイルです。最大の特徴は、**毎セッションの起動時に自動で読まれる** こと。あなたが <Term id="prompt">プロンプト</Term> で毎回伝えなくても、ここに書いた内容は最初から <Term id="context">コンテキスト</Term>(Claude が参照している情報)に入っています。
+
+つまり、CLAUDE.md は **セッションをまたいで効く** <Term id="memory">メモリ</Term> の中心です。「このプロジェクトでは必ず TypeScript を使う」と一度書けば、次に開いたときも、来週開いたときも、その前提で動いてくれます。
+
+<Callout>
+  置き場所はプロジェクトのルート(リポジトリ直下)。ファイル名はそのまま <code class="inline">CLAUDE.md</code> です。これだけで自動読み込みの対象になります。
+</Callout>
+
+## §2 何を書くか
+
+迷ったら、**「新人に最初に伝えること」** を書けば外しません。代表的なのは次の 4 つです。
+
+- **コーディング規約** — 命名・フォーマット・使ってよい/だめな書き方。
+- **アーキテクチャ判断** — ディレクトリ構成、層の分け方、依存の方向。
+- **使用ライブラリ** — 「日付は dayjs」「テストは vitest」など採用済みの道具。
+- **レビュー観点** — 「PR 前に必ずテストを通す」など完了の条件。
+
+逆に、**毎回変わること**(今日のタスク内容など)は書きません。それは都度プロンプトで渡すものです。CLAUDE.md には **不変のルール** だけを置くのがコツです。
+
+## §3 書いてみる(最小例)
+
+ルートに `CLAUDE.md` を作り、箇条書きで簡潔に書きます。長文より、短い指示の集まりの方が守られやすいです。
+
+<CodeBlock title="CLAUDE.md" badge="例">
+<span class="line"><span class="sx-key">#</span> このプロジェクトのルール</span>
+<span class="line"> </span>
+<span class="line"><span class="sx-key">##</span> 言語・ライブラリ</span>
+<span class="line"><span class="sx-dim">-</span> TypeScript を使う。<span class="sx-str">any</span> は禁止。</span>
+<span class="line"><span class="sx-dim">-</span> 日付処理は <span class="sx-str">dayjs</span>。標準 Date を直接使わない。</span>
+<span class="line"> </span>
+<span class="line"><span class="sx-key">##</span> テスト</span>
+<span class="line"><span class="sx-dim">-</span> テストは <span class="sx-str">vitest</span>。実装したら必ずテストも書く。</span>
+<span class="line"> </span>
+<span class="line"><span class="sx-key">##</span> 完了の条件</span>
+<span class="line"><span class="sx-dim">-</span> 変更後は <span class="sx-str">npm test</span> を通してから完了とする。</span>
+</CodeBlock>
+
+これだけで、次の起動から Claude はこのルールを前提に動きます。
+
+## §4 /init で下書きを作る
+
+ゼロから書くのが面倒なら、Claude に **たたき台を作らせる** のが速いです。<Term id="slash-command">スラッシュコマンド</Term> の `/init` を使うと、Claude が <Term id="repository">リポジトリ</Term> を解析し、構成や使用言語をまとめた CLAUDE.md を自動生成します。
+
+<CodeBlock title="zsh — claude" badge="CLI">
+<span class="line"><span class="prompt cy">&gt;</span> <span class="sx-key">/init</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">  ⎿ </span><span class="sx-fn">scan</span> <span class="sx-flag">package.json, src/ …</span></span>
+<span class="line"><span class="sx-dim">  ⎿ </span><span class="sx-fn">write</span> <span class="sx-flag">CLAUDE.md</span> <span class="sx-str">(下書きを生成)</span></span>
+</CodeBlock>
+
+生成された下書きは **そのまま使わず、必ず目を通して直す** こと。Claude の推測が混じるので、実際のルールに合わせて削り、足します。ゼロからより圧倒的に楽になります。
+
+## §5 auto memory — Claude が自分で覚える
+
+CLAUDE.md は手で書くだけではありません。<Term id="auto-memory">auto memory(自動メモリ)</Term> という仕組みがあり、Claude は作業しながら気づいたこと——ビルド手順やデバッグの知見——を **自分で保存し**、セッションをまたいで活用します。
+
+たとえば「このプロジェクトのビルドは `npm run build:app` だ」と一度突き止めれば、それを覚えておき、次回からは迷いません。あなたが教えなくても、使うほど賢くなっていくイメージです。
+
+<Callout>
+  手で書く CLAUDE.md と、Claude が自分で貯める auto memory。この 2 つが合わさって <Term id="memory">メモリ</Term> を作ります。土台は同じで、入り口が「人」か「Claude」かの違いです。
+</Callout>
+
+## §6 # で、その場で追記する
+
+会話中に「これは覚えておいてほしい」と思ったら、行頭に `#` を付けて入力します。これが <Term id="hash-memory"># メモリ追記</Term>。打った内容がそのまま CLAUDE.md などのメモリに書き足され、auto memory の仕組みに乗ります。
+
+<CodeBlock title="zsh — claude" badge="CLI">
+<span class="line"><span class="prompt cy">&gt;</span> <span class="sx-key">#</span> <span class="sx-str">API のベースURLは src/config.ts に集約する</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">  ⎿ </span><span class="sx-fn">memory</span> <span class="sx-flag">CLAUDE.md</span> <span class="sx-str">に追記しました</span></span>
+</CodeBlock>
+
+わざわざファイルを開かなくても、気づいた瞬間にルールを足せる——これが日々いちばん使う書き方です。ルールは最初に完成させるものではなく、**使いながら育てるもの** だと考えてください。
+
+## §7 大きくなったら分割する
+
+ルールが増えて CLAUDE.md が長くなると、毎回すべてが読み込まれて <Term id="context">コンテキスト</Term> を圧迫します。そうなったら、内容をテーマごとに別ファイルへ分け、**必要なときだけ読ませる** 形に変えると無駄が減ります。
+
+| 置き方 | 向き |
+|---|---|
+| CLAUDE.md 1 枚 | 小〜中規模。まずはこれで十分 |
+| `ai/rules/` 等に分割 | ルールが増えてきたら。アーキ・Git 規約・言語別に分ける |
+
+最初から凝る必要はありません。**1 枚で始めて、重くなってから分割** で十分です。
+
+## §8 モードによる違い
+
+CLAUDE.md は **ファイルベースの仕組み** なので、効き方はどのモードでも同じです。置けば自動で読まれる——この土台は共通です。差は「どこで編集すると楽か」だけです。
+
+<ModeBlock mode="terminal">
+ターミナル版では、ふだん使うエディタ(VS Code、Vim など)で `CLAUDE.md` を開いて編集します。会話中に足したいときは、§6 の `#` 追記がいちばん手早い方法です。
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+デスクトップアプリ版では、アプリ内のエディタで `CLAUDE.md` をそのまま開いて編集できます。ファイルツリーから選んで開き、書いて保存すれば、次の <Term id="session">セッション</Term> から反映されます。会話中の `#` 追記も同じように使えます。
+</ModeBlock>
+
+<Callout>
+  ルールを 1 つ書くだけでも、毎回の指示が確実に減ります。まずは「言語」と「完了の条件」の 2 行から始めてみてください。次章では、<Term id="claude-md">CLAUDE.md</Term> の隣に置く設定ファイルで、**読んでよいファイル・実行してよいコマンド** を制御していきます。
+</Callout>

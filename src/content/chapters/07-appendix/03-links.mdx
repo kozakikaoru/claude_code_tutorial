@@ -1,0 +1,65 @@
+---
+title: 参考リンク（日本語学習リソース）
+part: appendix
+order: 4
+level: リファレンス
+summary: 本サイトを読み終えたあと、さらに学ぶための入り口をまとめます。仕様の正本となる公式一次情報と、現場の使い方が掴める日本語コミュニティ記事を、目的別に並べました。「次に何を読むか」に迷ったら、ここを起点にしてください。
+readingTime: 5
+updated: 2026-06-27
+---
+
+このサイトで <Term id="claude-code">Claude Code</Term> のひととおりを学んだら、次はもっと深いところ、あるいは自分の現場に近い事例へ進みたくなるはずです。このページは、その「次の一歩」をまとめた外部リンク集です。
+
+リンクは二系統に分けています。ひとつは**公式の一次情報**——仕様の正本で、本サイトと食い違ったら常にこちらが優先します。もうひとつは**日本語コミュニティの記事**——公式には載らない、現場での使い方や工夫が掴めます。
+
+<Callout>
+  <b>数字や仕様は、必ず公式で裏を取る。</b> コミュニティ記事は全体像を素早く掴むのに最適ですが、上限値・課金・コマンド名などの「数」や「仕様」は版で変わります。気になったら一次情報で確認する——この順番を習慣にしてください（くわしくは付録C を参照）。
+</Callout>
+
+## §1 公式一次情報（まずここから）
+
+仕様の正本です。本サイトの記述が古く感じたら、まずここを当たってください。
+
+- [Overview（全体像）](https://code.claude.com/docs/en/overview) — Claude Code が何で、どのサーフェスで使えるかの入口。
+- [What's new（変更履歴）](https://code.claude.com/docs/en/whats-new) — 何が・いつ追加/変更されたかの時系列。**週次で更新**されます。
+- [Settings（設定）](https://code.claude.com/docs/en/settings) ／ [Memory・CLAUDE.md](https://code.claude.com/docs/en/memory) — 設定の3階層と、<Term id="claude-md">CLAUDE.md</Term> の正本。
+- [ドキュメント目次（llms.txt）](https://code.claude.com/docs/llms.txt) — 全ページの索引。探しものはここから辿れます。
+
+## §2 公式一次情報（深掘り・機能別）
+
+中級以降で頼りにする、機能ごとの公式ドキュメントです。
+
+- [Sub-agents（サブエージェント）](https://code.claude.com/docs/en/sub-agents) — 第3部の核。定義・作り方・自動委譲の正本。
+- [Hooks（フック）](https://code.claude.com/docs/en/hooks) ／ [MCP](https://code.claude.com/docs/en/mcp) — <Term id="hook">フック</Term> と <Term id="mcp">MCP</Term> の仕様。
+- [GitHub Actions](https://code.claude.com/docs/en/github-actions) ／ [claude-code-action（リポジトリ）](https://github.com/anthropics/claude-code-action) — CI 連携の公式。
+- [Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview) — <Term id="agent-sdk">Claude Agent SDK</Term> で独自エージェントを作る入口。
+
+## §3 日本語コミュニティ記事（はじめの一歩）
+
+まず全体像を日本語で掴みたい人向けです。
+
+- [今から追いつく入門](https://qiita.com/i-inose/items/e644e9b620ee1c8d3c1b) — これから始める人の最初の1本に。
+- [完全リファレンス＋便利機能トップ10](https://qiita.com/nogataka/items/5e64037cc452c5d497fa) — 機能の見取り図と、知っておくと得な小技。
+- [ベストプラクティス2026](https://qiita.com/dai_chi/items/63b15050cc1280c45f86) — 使い込んだ人の運用のコツ。
+- [学習サイト・動画まとめ](https://qiita.com/kamome_susume/items/af629235d2703e071f18) — さらに探すための入口集。
+
+## §4 日本語コミュニティ記事（サブエージェント・自動化）
+
+本サイトの山である <Term id="subagent">サブエージェント</Term> を、現場目線で深掘りする記事です。
+
+- [公式「計画・生成・評価」3分離パターンの実践](https://qiita.com/nogataka/items/efe8eb9df612d2211221) — 第3部の目玉パターンの実践解説。
+- [サブエージェント基本（Zenn）](https://zenn.dev/ino_h/articles/2025-09-10-claude-code-subagents-basics) ／ [自動で呼ばれる仕組み（Zenn）](https://zenn.dev/torakm/articles/7225ac25be5ac9) — 噛み砕いた入門と <Term id="auto-delegation">自動委譲</Term> の理解に。
+- [業務効率化サブエージェント5選](https://qiita.com/kamome_susume/items/d0deee260abce30e1f89) — そのまま使えるテンプレの参考。
+- [SKILL.md でワークフロー自動化](https://qiita.com/nogataka/items/c59defafd0dfb88c4a90) ／ [サブエージェントとスキルの違い](https://qiita.com/tomoka1211/items/cccd0f928a1a03d79f60) — <Term id="skill">スキル</Term> との使い分け。
+
+## §5 日本語コミュニティ記事（事例・読み物）
+
+「自分の現場でどう活きるか」のイメージが湧く事例集です。
+
+- [Claude Code を"優秀な新卒部下"として使う（Zenn）](https://zenn.dev/yoshiaki0217/articles/9dd7a3666d475f) — 第6部の源流。プロンプトより**環境設計**という思想。
+- [日常業務を爆速化](https://qiita.com/minorun365/items/114f53def8cb0db60f47) — 経費精算や資料作成など、コーディング以外の自動化事例。
+- [1人「AIカンパニー」を運営する](https://qiita.com/YushiYamamoto/items/f1a9327bddeea1d954ab) ／ [Subagent でフィードバックループ（note）](https://note.com/techocean_corp/n/n26df656520ba) — 役割分担の到達点。
+
+<Callout>
+  <b>次に読むなら。</b> もっと深く学びたいなら、まず §1 の公式 Overview と、自分が伸ばしたい領域の §2 を1本。現場の勘所を掴みたいなら §4 の「3分離パターン」と §5 の「新卒部下」記事がおすすめです。リンク先の体感値（高速化の倍率など）は**書き手それぞれの事例**として読み、仕様は §1 の公式で確かめてください。
+</Callout>

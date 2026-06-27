@@ -1,0 +1,117 @@
+---
+title: サーフェス間移動・ハイブリッド運用
+part: advanced
+order: 5
+level: 上級
+summary: 1つのセッションは1つの入り口に縛られません。ターミナルで始めてデスクトップで差分を見て、外出先はスマホから——teleport・/desktop・Remote Control・Dispatch でサーフェスを渡り歩く運用を組み立てます。
+readingTime: 8
+updated: 2026-06-27
+---
+
+ここまでの章で、設定も `CLAUDE.md` も <Term id="mcp">MCP</Term> も全サーフェス共通だと学びました。この章はその一歩先です。**1つの作業（セッション）を、入り口をまたいで持ち運ぶ**——ターミナルで始めた処理をデスクトップの差分ビューで確認し、外出先ではスマホから様子を見る。この章のテーマは「移動」そのものなので、各コマンドが **どのサーフェスを起点に動くか** を必ず明記しながら進めます。
+
+<Callout>
+  <b>前提のおさらい。</b> <Term id="surface">サーフェス</Term> とは Claude Code の入り口（CLI・デスクトップアプリ・Web/iOS など）のこと。中身のモデルと能力は同じで、入り口だけが違います。だからこそ、入り口を途中で乗り換えても <Term id="session">セッション</Term> は引き継げます。
+</Callout>
+
+## §1 なぜサーフェスを移動するのか
+
+入り口にはそれぞれ得意・不得意があります。
+
+- **ターミナル** — フラグやパイプ、バッチ実行に強い。長時間処理を仕込むのに向く。
+- **デスクトップ** — 視覚的な <Term id="diff-view">差分ビュー</Term> でレビューしやすい。
+- **スマホ（Web/iOS）** — 移動中に依頼を投げたり、進捗を覗いたりできる。
+
+作業の途中で「いまはこっちの入り口が向いている」と感じる瞬間があります。長い処理はターミナルで回したいが、できた差分はじっくり目で見たい——。サーフェス間移動は、この **場面ごとに最適な入り口** を、作業を中断せずに渡り歩く仕組みです。これを習慣にしたものを <Term id="hybrid-workflow">ハイブリッド運用</Term> と呼びます。
+
+## §2 `--teleport` — Web/iOS の処理をターミナルへ
+
+外出先のスマホ（Web/iOS）で長時間タスクを走らせ始めたとします。帰宅して、その続きを手元のターミナルでしっかり扱いたい。このとき使うのが <Term id="teleport">--teleport</Term> です。**起点は Web/iOS、引き込む先はターミナル** です。
+
+<CodeBlock title="zsh — claude" badge="CLI">
+<span class="line"><span class="sx-com"># Web/iOS で動いているセッションを手元に引き込む</span></span>
+<span class="line"><span class="prompt">$</span> claude <span class="sx-flag">--teleport</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">  リモートで実行中のセッションを選択してください…</span></span>
+<span class="line"><span class="prompt cy">&gt;</span> <span class="caret" aria-hidden="true"></span></span>
+</CodeBlock>
+
+引き込んだあとは、ふだんのターミナルセッションと同じです。会話の文脈も途中までの変更もそのまま引き継がれます。
+
+## §3 `/desktop` — ターミナルからデスクトップへ
+
+逆の向きもあります。ターミナルで作業を進めたものの、変更が大きくなってきて **視覚的に差分を見たくなった**。そんなときは <Term id="desktop-command">/desktop</Term> を打つと、いま動いているセッションをそのままデスクトップアプリに渡せます。**起点はターミナル、渡す先はデスクトップ** です。
+
+<CodeBlock title="zsh — claude" badge="CLI">
+<span class="line"><span class="sx-com"># 実装が一段落。差分を目で確認したくなった</span></span>
+<span class="line"><span class="prompt cy">&gt;</span> <span class="sx-key">/desktop</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">  デスクトップアプリでこのセッションを開いています…</span></span>
+</CodeBlock>
+
+<Callout>
+  <b>差分レビューはデスクトップが得意。</b> <Term id="approval-flow">承認フロー</Term>（提案を読んで取り込む往復）は、横並びの差分ビューがあるデスクトップだと格段にやりやすくなります。「実装はターミナル、レビューはデスクトップ」は鉄板の組み合わせです。
+</Callout>
+
+## §4 受け取った側でのレビュー
+
+`/desktop` で渡したセッションは、デスクトップ側ではこう見えます。同じ作業が、入り口を変えただけで別の見え方になることを確認してください。
+
+<ModeBlock mode="terminal">
+いまターミナル版を選んでいます。`/desktop` を打った瞬間、操作の主役がアプリ側に移ります。手元のターミナルは役目を終え、続きはアプリの差分ビューで進めます。
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+いまデスクトップ版を選んでいます。ターミナルから渡ってきたセッションは、通常のアプリのセッションと同じように扱えます。差分パネルで一つずつ確認し、承認しながら取り込めます。
+</ModeBlock>
+
+<CodeBlock badge="例">
+  <Fragment slot="title">
+    <span class="mode-only for-terminal">zsh — 引き継ぎ前</span>
+    <span class="mode-only for-desktop">差分ビュー — 引き継ぎ後</span>
+  </Fragment>
+<span class="line mode-only for-terminal"><span class="sx-com"># ここまではターミナルで実装していた</span></span>
+<span class="line mode-only for-terminal"><span class="sx-dim">  ⎿ </span><span class="sx-fn">edit</span> <span class="sx-flag">src/api/users.ts</span> <span class="sx-str">+18 -4</span></span>
+<span class="line mode-only for-terminal"><span class="prompt cy">&gt;</span> <span class="sx-key">/desktop</span> <span class="sx-dim">→ アプリへ受け渡し</span></span>
+<span class="line mode-only for-desktop"><span class="sx-com"># 受け取ったセッションを差分ビューで確認</span></span>
+<span class="line mode-only for-desktop"><span class="prompt">Claude</span>  <span class="sx-fn">編集</span> <span class="sx-flag">src/api/users.ts</span>  <span class="sx-str">+18 −4</span></span>
+<span class="line mode-only for-desktop"><span class="sx-dim">        差分パネルで承認してください</span> <span class="caret" aria-hidden="true"></span></span>
+</CodeBlock>
+
+## §5 Remote Control — スマホから手元を操作
+
+外出中に、自宅やオフィスで動かしっぱなしの <Term id="background-agent">バックグラウンドセッション</Term> の進捗が気になることがあります。<Term id="remote-control">リモートコントロール</Term> を使うと、スマホや別のブラウザから、**手元で動いているローカルセッションをそのまま継続操作** できます。
+
+起点は **ローカル（ターミナル/デスクトップ）のセッション**、操作する側がスマホや別ブラウザです。外出先から進捗を確認し、必要なら指示を一つ足す——といった使い方ができます。
+
+<Callout type="warn">
+  <b>操作している実体は手元のマシン。</b> リモートコントロールは画面を遠隔で動かす感覚に近く、実際に動いているのは手元のローカルセッションです。外から指示を足すときは、いま手元でどこまで進んでいるかを踏まえて出しましょう。
+</Callout>
+
+## §6 Dispatch — スマホから投げて、戻って受け取る
+
+移動中に「これ、あとでやっておいてほしい」とだけ伝えたいこともあります。<Term id="dispatch">ディスパッチ</Term> は、**スマホからタスクを投げると、デスクトップ側でセッションが立ち上がる** 仕組みです。依頼だけ先に済ませ、戻ってきてから結果を確認できます。
+
+Remote Control との違いを整理します。
+
+| 機能 | 起点 | 操作する先 | 向く場面 |
+|---|---|---|---|
+| Remote Control | 既存のローカルセッション | スマホ/別ブラウザから継続 | いま動いている作業を外から覗き、指示を足す |
+| Dispatch | スマホ | デスクトップで新規に開く | 移動中に依頼だけ投げ、戻って結果を見る |
+
+なお、Slack に繋いでおけば `@Claude` 宛にバグ報告を送って <Term id="pull-request">PR</Term> が返ってくる、といった入り口も使えます。チャットもまた1つのサーフェスです。
+
+## §7 1日のハイブリッド運用にまとめる
+
+最後に、ここまでの移動を「1日の働き方」として一本につなげてみます。サーフェスを渡り歩くと、こんな流れが自然に組めます。
+
+- **朝（移動中・スマホ）** — Dispatch で「この issue に着手しておいて」と投げる。
+- **日中（オフィス・デスクトップ）** — 立ち上がったセッションを差分ビューでレビュー。込み入った実装はターミナルへ移し、戻すときは `/desktop`。
+- **外出（スマホ）** — Remote Control で進捗を覗き、軌道修正の指示を一つ足す。
+- **夜（自宅・ターミナル）** — Web/iOS で回し始めた長時間処理を `--teleport` で引き込み、仕上げる。
+
+<Callout>
+  <b>移動は目的ではなく手段。</b> 大事なのは「どの入り口を使うか」ではなく「いまの作業にどの入り口が向くか」です。実装はターミナル、レビューはデスクトップ、つなぎはスマホ——役割で選べば、サーフェス間移動は自然と身につきます。
+</Callout>
+
+サーフェスの壁が消えると、Claude Code は「机の前でだけ使う道具」ではなくなります。次章では、版によって挙動が変わりやすい便利機能・裏技を、注意点とあわせて一気に押さえます。

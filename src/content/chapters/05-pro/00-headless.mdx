@@ -1,0 +1,73 @@
+---
+title: headless で「コマンド部品」にする
+part: pro
+order: 1
+level: プロ
+summary: REPL を離れ、claude -p を Unix のパイプに繋いで使います。Claude を一つのコマンドとして合成すると、ログ監視やレビューを既存のシェル芸に組み込めます。
+readingTime: 7
+updated: 2026-06-27
+---
+
+ここからはプロの領域です。これまでは対話画面（REPL）に指示を打ち込んできましたが、Claude は **1 回きりのコマンド** としても呼べます。これを <Term id="headless">ヘッドレス</Term> 実行と呼び、`grep` や `sort` と同じ感覚でシェルに組み込めます。
+
+<Callout>
+  <b>この章はターミナル版が主役です。</b> ヘッドレス実行は <Term id="cli">CLI</Term> の機能で、パイプや CI と組み合わせてこそ真価が出ます。デスクトップアプリにも自動化の入口（定期タスク）はありますが、コマンド合成は CLI の土俵です。
+</Callout>
+
+## §1 まず `claude -p` を一発打つ
+
+対話を始めずに結果だけ受け取るには <Term id="claude-p">claude -p</Term>（`--print` の略）を使います。プロンプトを引数で渡すと、Claude が答えを標準出力に返してそのまま終了します。REPL のように居座りません。
+
+<CodeBlock title="zsh — claude -p" badge="CLI">
+<span class="line"><span class="sx-com"># 1 回だけ実行して結果を標準出力へ</span></span>
+<span class="line"><span class="prompt">$</span> claude <span class="sx-flag">-p</span> <span class="sx-str">"このリポジトリの主要な依存ライブラリを3つ挙げて"</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">  - react（UI フレームワーク）</span></span>
+<span class="line"><span class="sx-dim">  - astro（静的サイト生成）</span></span>
+<span class="line"><span class="sx-dim">  - vitest（テスト）</span></span>
+</CodeBlock>
+
+これだけで、Claude が「呼んだら答えて消える」普通のコマンドになりました。次は入力を **前段から流し込み** ます。
+
+## §2 標準入力をパイプで渡す
+
+`claude -p` の真価は、前のコマンドの出力を `|`（パイプ）で食わせられる点です。ログの末尾を渡して異常を見つけさせてみます。Unix のパイプ記号はそのまま書けます。
+
+<CodeBlock title="zsh — ログ監視" badge="CLI">
+<span class="line"><span class="sx-com"># 直近 200 行のログを渡し、異常だけ報告させる</span></span>
+<span class="line"><span class="prompt">$</span> tail <span class="sx-flag">-200</span> app.log | claude <span class="sx-flag">-p</span> <span class="sx-str">"異常があれば原因と該当行を報告"</span></span>
+</CodeBlock>
+
+`tail` が吐いた 200 行がそのまま Claude の入力になります。人間がログを読む代わりに、要点だけを返させる——これが「部品としての Claude」の基本形です。
+
+## §3 もう一つの合成: 差分をレビューさせる
+
+パイプの相手は何でも構いません。`git diff` の出力を渡せば、変更点だけをレビューさせられます。前段を差し替えるだけで用途が変わるのがパイプの強みです。
+
+<CodeBlock title="zsh — 差分レビュー" badge="CLI">
+<span class="line"><span class="sx-com"># main との差分ファイル一覧をレビューさせる</span></span>
+<span class="line"><span class="prompt">$</span> git diff main <span class="sx-flag">--name-only</span> | claude <span class="sx-flag">-p</span> <span class="sx-str">"変更ファイルをセキュリティ観点でレビュー"</span></span>
+</CodeBlock>
+
+§2 のログ監視と形はまったく同じで、前段が `tail` から `git diff` に変わっただけです。**入力を差し替えれば別の仕事になる**——この組み替えやすさが Unix 哲学であり、ヘッドレスの狙いです。
+
+## §4 出力を機械で扱う
+
+結果を後続のスクリプトに渡すなら、人間向けのテキストより構造化された形が便利です。<Term id="output-format">--output-format</Term> に `json` を指定すると、`jq` などで処理できる形で受け取れます。
+
+<CodeBlock title="zsh — JSON 出力" badge="CLI">
+<span class="line"><span class="sx-com"># JSON で受け取り、jq で本文だけ取り出す</span></span>
+<span class="line"><span class="prompt">$</span> git diff main | claude <span class="sx-flag">-p</span> <span class="sx-str">"要約して"</span> <span class="sx-flag">--output-format</span> json | jq <span class="sx-str">'.result'</span></span>
+</CodeBlock>
+
+ほかにも応答回数を縛る `--max-turns`、モデルを選ぶ `--model`、使えるツールを絞る `--allowedTools` があります。これらを足していくと、ヘッドレス実行を CI のステップとして安全に組み込めます（詳しくは次章）。
+
+## §5 課金の注意（必ず読む）
+
+最後に、プロとして外せない一点です。**2026/6/15 以降、`claude -p` などの自動化経由の利用は、通常のサブスク枠とは別の <Term id="monthly-credit">月次クレジット</Term> を消費します**（Pro / Max などプランごとに枠があり、API レート課金）。
+
+<Callout type="warn">
+  <b>パイプはループの中で気軽に回さない。</b> ヘッドレス実行はスクリプトやループに組み込みやすい反面、回数がそのままコストに直結します。`--max-turns` で上限を設け、まずは少量で試してから本番に回してください。自動化の各章で繰り返し触れる注意点です。
+</Callout>
+
+ここまでで Claude を「合成できる部品」にできました。次章では、この部品を <Term id="github-actions">GitHub Actions</Term> に載せて、PR レビューを CI 上で自動化します。

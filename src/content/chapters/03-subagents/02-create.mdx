@@ -1,0 +1,106 @@
+---
+title: 作ってみる（Markdown＋YAML、/agents）
+part: subagents
+order: 3
+level: 中級
+summary: 理屈はここまで。実際にサブエージェントを 1 体、手で作って動かします。実体は YAML フロントマター付きの Markdown 1 枚。最小の planner を写経し、/agents での作り方と置き場所まで押さえます。
+readingTime: 8
+updated: 2026-06-27
+---
+
+前章までで <Term id="subagent">サブエージェント</Term> が「なぜ効くか」を見てきました。この章は手を動かす番です。**最小の 1 体を実際に作って、呼び出せる状態にする**——それがゴールです。難しく見えて、正体はとても素朴です。
+
+<Callout>
+  <b>サブエージェントの実体は、たった 1 枚のファイルです。</b> <Term id="yaml-frontmatter">YAML フロントマター</Term>付きの Markdown——つまりこの章を書いているのと同じ形式のテキストファイル。プログラムは一切書きません。
+</Callout>
+
+## §1 正体は Markdown 1 枚
+
+サブエージェントは、`.md` ファイル 1 枚で定義します。構造は 2 段だけ。上の `---` で囲んだ部分（フロントマター）で**設定**を宣言し、その下の本文がそのまま**<Term id="system-prompt">システムプロンプト</Term>**——つまり「その係の人格と振る舞い」になります。
+
+- **フロントマター** — 名前・役割・使えるツール・モデルを宣言する設定欄。
+- **本文** — 「あなたは○○の専門家です」と語りかける、振る舞いの指示。
+
+この 2 つを 1 ファイルに書くだけ。次の節で、フロントマターに何を書くかを見ます。
+
+## §2 フロントマターの 4 項目
+
+フロントマターで宣言する主な項目はこの 4 つです。まずはこれだけ覚えれば、1 体作れます。
+
+| 項目 | 役割 |
+|---|---|
+| `name` | サブエージェントの名前（呼び出しの識別子） |
+| `description` | **いつ・何のために使うか**。自動委譲の判断材料 |
+| `tools` | 使わせるツール（`Read, Grep` など。絞るほど安全） |
+| `model` | 動かすモデル。`inherit` で呼び出し元と同じ |
+
+特に大事なのが <Term id="description">description</Term> です。Claude はここを読んで「このタスクはこの係に任せよう」と判断します。具体的に書くほど、狙いどおりに呼ばれます（設計のコツは次章で深掘りします）。
+
+## §3 最小の planner を写経する
+
+では、いちばん簡単な 1 体——要件から計画を立てる <Term id="planner">planner</Term> を作ってみましょう。下の内容を、丸ごと写経してください。これが完成形です。
+
+<CodeBlock title=".claude/agents/planner.md" badge="サブエージェント">
+<span class="line"><span class="sx-dim">---</span></span>
+<span class="line"><span class="sx-key">name</span>: <span class="sx-str">planner</span></span>
+<span class="line"><span class="sx-key">description</span>: <span class="sx-str">要件から実装計画を作る。実装の前に呼ぶ</span></span>
+<span class="line"><span class="sx-key">tools</span>: <span class="sx-str">Read, Grep, Glob</span></span>
+<span class="line"><span class="sx-key">model</span>: <span class="sx-str">inherit</span></span>
+<span class="line"><span class="sx-dim">---</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-com">あなたは実装計画づくりの専門家です。</span></span>
+<span class="line"><span class="sx-com">渡された要件を読み、関連コードを調べたうえで、</span></span>
+<span class="line"><span class="sx-com">手順を箇条書きの計画にまとめてください。</span></span>
+<span class="line"><span class="sx-com">コードは書かず、計画だけを返します。</span></span>
+</CodeBlock>
+
+## §4 写経のポイント
+
+上のファイルには、サブエージェントの設計思想が詰まっています。3 点だけ確認します。
+
+- **`tools` を読み取り系だけに絞った** — planner は計画を立てる係なので、編集や実行は不要。渡さないことで「勝手にコードを書く」事故を防ぎます（<Term id="tool-permission">ツール権限</Term>を絞る効果）。
+- **`model: inherit` にした** — まずは呼び出し元と同じ<Term id="model-inherit">モデル</Term>で十分。後でコスト調整したくなったら、ここにモデル名を書きます。
+- **本文で「コードは書かない」と念を押した** — 役割を 1 つに絞る指示。これが品質を安定させます。
+
+## §5 どこに置くか
+
+ファイルの置き場所で「誰が使えるか」が決まります。2 か所あります。
+
+| 置き場所 | 範囲 | git |
+|---|---|---|
+| `.claude/agents/` | そのプロジェクト（チーム共有） | する |
+| `~/.claude/agents/` | 自分の全プロジェクト | しない |
+
+チームに配りたい係は <Term id="dot-claude">.claude</Term>`/agents/` に置いてコミットすれば、リポジトリを clone した全員が同じサブエージェントを使えます。自分専用にしたいならホーム側の `~/.claude/agents/` へ。§3 の `planner.md` は、前者に置いた前提です。
+
+## §6 /agents で対話的に作る
+
+手書きが基本ですが、ファイルを直接書かずに作る道もあります。<Term id="agents-command">/agents コマンド</Term>です。案内に沿って答えるだけで、§3 と同じファイルを生成してくれます。
+
+<ModeBlock mode="terminal">
+ターミナル版では、セッション中に `/agents` を打つと対話メニューが開きます。新規作成を選び、名前・説明・ツールを順に答えていけば、`.claude/agents/` にファイルが書き出されます。
+
+<CodeBlock title="zsh — サブエージェントを作る" badge="CLI">
+<span class="line"><span class="sx-com"># セッション中に管理メニューを開く</span></span>
+<span class="line"><span class="prompt cy">&gt;</span> <span class="sx-key">/agents</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">  ▸ Create new agent</span></span>
+<span class="line"><span class="sx-dim">    Edit / Manage agents…</span></span>
+</CodeBlock>
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+デスクトップアプリ版では、エージェント管理を **GUI** で行えます。フォームに名前・説明・ツールを入力すると、内部で `.claude/agents/` に同じ Markdown ファイルが作られます。生成された定義や実行ログも画面で見やすく確認できます。
+
+出力されるファイルはターミナル版とまったく同じものです。入り口が違うだけで、できあがる成果物は 1 つです。
+</ModeBlock>
+
+## §7 動かしてみる
+
+作ったら、もう使えます。「この機能の実装計画を立てて」のように頼むと、Claude が <Term id="description">description</Term> を見て planner に委譲し、**計画づくりだけが別のコンテキストで進み**、結果の要約が返ってきます。明示的に「planner で計画して」と指名することもできます。
+
+<Callout>
+  <b>これでサブエージェントの「作る」は習得です。</b> やったことは、Markdown を 1 枚置いただけ。これが中級の入り口です。次章では <Term id="description">description</Term> を磨いて、<Term id="auto-delegation">自動委譲</Term>を狙いどおりに効かせる「呼ばれ方の設計」に進みます。
+</Callout>
+
+実体がただのテキストファイルだと分かれば、もう怖くありません。役割を 1 つに絞り（<Term id="single-responsibility">単一責務</Term>）、ツールを必要な分だけ渡す——この型を覚えれば、reviewer でも test-runner でも、同じ手順で量産できます。さっそく自分のプロジェクトに 1 体、置いてみてください。

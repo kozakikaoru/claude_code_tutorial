@@ -1,0 +1,91 @@
+---
+title: .claude フォルダ解剖
+part: customize
+order: 4
+level: 初中級
+summary: プロジェクト直下にできる .claude/ の中身を、フォルダごとに地図化します。「ここを見れば設定が全部わかる」状態を作り、第3部の各トピックへの入り口を押さえます。
+readingTime: 6
+updated: 2026-06-27
+---
+
+ここまでで <Term id="claude-md">CLAUDE.md</Term> と <Term id="settings-json">settings.json</Term> を触ってきました。これらを含む設定一式は、プロジェクト直下の <Term id="dot-claude">.claude フォルダ</Term> にまとまります。この章のゴールは、**.claude/ を開けば「何がどこにあるか」が地図のように分かる**状態になることです。
+
+<Callout>
+  <b>この章はモードによる差がありません。</b> .claude/ はファイルとフォルダの構造そのものの話で、ターミナル版でもデスクトップアプリ版でもまったく同じものを指します。
+</Callout>
+
+## §1 まず全体像を見る
+
+`/init` を実行したり、設定やサブエージェントを作っていくと、プロジェクト直下に `.claude/` ができます。代表的な中身はこの形です。
+
+<CodeBlock title="プロジェクト直下のレイアウト" badge="構造">
+<span class="line"><span class="sx-flag">your-project/</span></span>
+<span class="line">├─ <span class="sx-key">CLAUDE.md</span><span class="sx-dim">          # 常時読まれるルール（フォルダの外）</span></span>
+<span class="line">└─ <span class="sx-flag">.claude/</span><span class="sx-dim">            # 設定一式の入れ物</span></span>
+<span class="line">   ├─ <span class="sx-key">settings.json</span><span class="sx-dim">      # 権限・フック・モデルなど</span></span>
+<span class="line">   ├─ <span class="sx-flag">agents/</span><span class="sx-dim">           # サブエージェント定義</span></span>
+<span class="line">   ├─ <span class="sx-flag">commands/</span><span class="sx-dim">         # カスタムスラッシュコマンド</span></span>
+<span class="line">   ├─ <span class="sx-flag">skills/</span><span class="sx-dim">           # スキル（SKILL.md）</span></span>
+<span class="line">   └─ <span class="sx-flag">hooks/</span><span class="sx-dim">            # フック用スクリプト</span></span>
+</CodeBlock>
+
+すべてが最初から揃うわけではありません。**必要になったフォルダだけが増えていく**と考えてください。次の節から、ひとつずつ役割を見ていきます。
+
+## §2 settings.json — 動作のルール
+
+<Term id="settings-json">settings.json</Term> は、権限・<Term id="hook">フック</Term>・モデルなどの「どう動くか」を決めるファイルです。前章で見たとおり、置き場所によって効く範囲が変わります。
+
+| ファイル | 範囲 | git |
+|---|---|---|
+| `.claude/settings.json` | このプロジェクト（チーム共有） | 管理する |
+| `.claude/settings.local.json` | このプロジェクト（自分だけ） | 管理しない |
+
+`.local.json` は個人用の上書きなので、git では追跡しません(§6で扱います)。チームに配りたい設定は `settings.json`、自分の手元だけの調整は `.local.json`、と覚えれば十分です。
+
+## §3 agents/ — サブエージェント
+
+`.claude/agents/` には <Term id="subagent">サブエージェント</Term> の定義を置きます。中身は 1 体につき Markdown ファイル 1 枚で、誰が見ても「どんな専門家がいるか」が一覧できます。
+
+<CodeBlock title=".claude/agents/" badge="構造">
+<span class="line"><span class="sx-flag">agents/</span></span>
+<span class="line">├─ <span class="sx-key">planner.md</span><span class="sx-dim">          # 計画を立てる係</span></span>
+<span class="line">├─ <span class="sx-key">code-reviewer.md</span><span class="sx-dim">    # レビューする係</span></span>
+<span class="line">└─ <span class="sx-key">test-runner.md</span><span class="sx-dim">      # テストを走らせる係</span></span>
+</CodeBlock>
+
+ここに置けばチームで共有でき、`~/.claude/agents/`(ホーム側)に置けば全プロジェクトで使える自分専用になります。**中身の作り方は第3部で本格的に扱います**。ここでは「サブエージェント = この棚に並ぶファイル」という置き場所だけ掴めば十分です。
+
+## §4 commands/ と skills/ — 自分のコマンド
+
+`.claude/commands/` には <Term id="custom-slash-command">カスタムスラッシュコマンド</Term> を、`.claude/skills/` には <Term id="skill">スキル</Term> を置きます。どちらも「決まった手順をひとつの入り口にまとめる」ためのもので、`/名前` の形で呼び出せます。
+
+- **commands/** — `<名前>.md` を置くと、その本文が `/名前` のプロンプトテンプレになる。
+- **skills/** — `SKILL.md` に名前と説明を書いて、多段の手順をまとめる。
+
+<Callout>
+  2026 年の更新で <b>スラッシュコマンドとスキルは統合</b>され、`commands/` でも `skills/` でも同じく `/コマンド名` で呼び出せます(旧来の形式もそのまま有効)。どちらも「自分専用の `/` を生やす場所」と捉えてください。詳しい作り方は第3部で扱います。
+</Callout>
+
+## §5 hooks/ — 行動の前後に差し込む
+
+`.claude/hooks/` には <Term id="hook">フック</Term> から呼ぶスクリプトを置きます。フックは「編集の直後に自動整形する」「危険なコマンドを実行前に止める」など、Claude の行動の節目に自分の処理を差し込む仕組みです。例えるなら Git の pre-commit の Claude 版です。
+
+どのイベントでどのスクリプトを動かすかは `settings.json` 側で指定し、実体のスクリプトをこのフォルダに置く——という分担になります。**こちらも仕組みの詳細は第3部**(フック入門)で扱います。ここでは「フック関連のファイルはこの棚」という地図だけで構いません。
+
+## §6 git で管理する / しない
+
+最後に、何を git に入れるかの線引きです。原則はシンプルで、**チームで揃えたいものは入れ、個人や秘密のものは外す**。
+
+| 入れる(共有) | 入れない(個人・秘密) |
+|---|---|
+| `settings.json` | `settings.local.json` |
+| `agents/` `commands/` `skills/` | 認証情報・トークンの類 |
+| `hooks/` のスクリプト | 自分の手元だけの上書き |
+
+`.local.json` のような個人向けファイルは `.gitignore` に入れて追跡から外します。これで「リポジトリを clone した全員が同じ Claude の振る舞いを得る」状態を、安全に作れます。
+
+## §7 この章のまとめ
+
+.claude/ は、**設定の地図**です。`settings.json` で動作を決め、`agents/`・`commands/`・`skills/`・`hooks/` でそれぞれの拡張を棚に並べる。どこに何があるか分かっていれば、迷子になりません。
+
+各フォルダの中身を実際に作っていくのは、ここからが本番です。次の部(第3部)で、`agents/` を皮切りに <Term id="subagent">サブエージェント</Term>・フック・<Term id="mcp">MCP</Term> を一つずつ組み上げていきます。この地図を手元に、先へ進みましょう。

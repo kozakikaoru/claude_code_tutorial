@@ -1,0 +1,114 @@
+---
+title: 非エンジニアの業務自動化
+part: recipes
+order: 2
+level: 初級
+summary: Claude Code はコードを書くためだけの道具ではありません。経費精算・資料作成・メール監視という三つの定番タスクを題材に、非エンジニアが「一番面倒なところだけ」を任せるレシピを紹介します。
+readingTime: 8
+updated: 2026-06-27
+---
+
+「Claude Code はエンジニアのもの」——そう思っていませんか。実際には、**ファイルを読んで・まとめて・書き出す** 作業の多くは、コードが書けなくても任せられます。この章は読み物です。手を動かす前に、非エンジニアの業務がどう変わるかのイメージを掴んでください。
+
+<ModeBlock mode="desktop">
+<Callout>
+  <b>非エンジニアの方には、まず <Term id="desktop">デスクトップアプリ版</Term> をおすすめします。</b> フォルダーを開いてチャット欄に日本語で頼むだけで、結果も差分も画面で確認できます。ターミナルもコマンドも要りません。右上のトグルが「デスクトップ」になっていることを確認して読み進めてください。
+</Callout>
+</ModeBlock>
+
+<ModeBlock mode="terminal">
+<Callout>
+  <b>ターミナル版を選んでいます。</b> この章の操作は <Term id="cli">CLI</Term> でもすべて再現できます。各レシピにコマンド例も併記します。なお非エンジニアの同僚に勧めるなら、右上のトグルで「デスクトップ」に切り替えた説明の方が案内しやすいはずです。
+</Callout>
+</ModeBlock>
+
+## §1 まず「全部やらせない」と決める
+
+非エンジニアの自動化でいちばん大事な心構えが <Term id="gradient-automation">グラデーション自動化</Term> です。**100%の自動化を狙わず、一番面倒な部分だけを任せる**。ここを外すと、作り込みに時間ばかりかかって挫折します。
+
+たとえば経費精算なら、最終的な金額の確認や提出ボタンは人が押す。でも「領収書のフォルダーを見て一覧表にする」ところは Claude に任せる。**判断は人、単純作業は AI** という線引きです。
+
+<Callout type="warn">
+  完璧な全自動を目指さないでください。手作業の中で<b>一番イヤな一工程</b>だけを切り出して頼む——これが続けられるコツであり、失敗しても被害が小さい安全な始め方でもあります。
+</Callout>
+
+## §2 「プチ仕様駆動」で迷わせない
+
+もう一つの土台が <Term id="spec-driven">仕様駆動</Term> の考え方です。いきなり「経費精算して」と頼むより、**やりたいことを先に文章で固める** 方が結果が安定します。難しく考えず、次の4つのメモを用意するだけで十分です。
+
+| ファイル | 役割 |
+|---|---|
+| PLAN.md | やりたいことを思いつくまま書き出す(下書き) |
+| SPEC.md | Claude と相談して整えた「最終的な仕様」 |
+| TODO.md | 作業の手順をチェックリスト化 |
+| KNOWLEDGE.md | 分かったこと・つまずきメモを蓄積 |
+
+最初は SPEC.md 一枚でも構いません。「何を・どんな形で出してほしいか」を書いておくと、毎回ゼロから説明せずに済みます。
+
+## §3 事例1 — 経費精算(CSV と領収書)
+
+毎月の経費精算。カード明細の CSV を開き、領収書フォルダーと突き合わせ、申請フォーマットに転記する——この**転記が一番面倒**です。そこだけ任せます。
+
+依頼はこれだけ。明細 CSV と領収書フォルダーを文脈に渡して頼みます。
+
+<CodeBlock title="依頼の例" badge="例">
+<span class="line"><span class="prompt cy">&gt;</span> <span class="sx-str">"card.csv を読んで、receipts フォルダーの領収書と</span></span>
+<span class="line"><span class="sx-str">    日付・金額で突き合わせ、申請用の一覧表(日付/科目/金額/</span></span>
+<span class="line"><span class="sx-str">    摘要)を作って。一致しなかった明細は別表で出して"</span></span>
+</CodeBlock>
+
+数十分かかっていた転記が数分に縮みます。**金額の最終確認と提出は自分で** 行い、突き合わせの単純作業だけを渡すのがコツです。
+
+<ModeBlock mode="terminal">
+ターミナルでも同じです。対象ファイルを `@` で投入してから頼みます。
+
+<CodeBlock title="zsh — claude" badge="CLI">
+<span class="line"><span class="prompt">$</span> <span class="sx-key">claude</span></span>
+<span class="line"><span class="prompt cy">&gt;</span> <span class="sx-str">"@card.csv と @receipts/ を突き合わせて一覧表にして"</span></span>
+</CodeBlock>
+</ModeBlock>
+
+## §4 事例2 — 資料作成(Marp でスライド)
+
+会議の文字起こしや箇条書きメモから、プレゼン資料の下地を作る作業も任せられます。鍵は <Term id="marp">Marp</Term> です。Marp は **Markdown(ただの箇条書きテキスト)からスライドを生成** するツールで、Claude が最も得意とする形式です。
+
+<CodeBlock title="依頼の例" badge="例">
+<span class="line"><span class="prompt cy">&gt;</span> <span class="sx-str">"打ち合わせメモ memo.txt を、Marp 形式のスライドに</span></span>
+<span class="line"><span class="sx-str">    して。1枚目に表紙、以降は見出し1つにつき1枚。</span></span>
+<span class="line"><span class="sx-str">    要点は3行以内の箇条書きで"</span></span>
+</CodeBlock>
+
+出てきた Markdown を Marp で開けば、そのままスライドになります。**構成とたたき台を AI が作り、言い回しやデザインの仕上げは人が行う** 役割分担です。ゼロから作る手間が消え、見直しに集中できます。
+
+## §5 事例3 — メール監視と対応漏れ防止
+
+「重要なメールへの返信を忘れていた」を防ぐ使い方です。Gmail やカレンダー、Todoist といった外部サービスは <Term id="mcp">MCP</Term> 経由で繋げます。MCP は **Claude に外部サービスを操作させる仕組み** で、これを繋ぐと「メールを読んで要対応を拾う」が頼めるようになります。
+
+<CodeBlock title="依頼の例(MCP 接続済み)" badge="例">
+<span class="line"><span class="prompt cy">&gt;</span> <span class="sx-str">"今日届いたメールを確認して、返信が必要なものだけ</span></span>
+<span class="line"><span class="sx-str">    一覧にして。期限がありそうなものは印を付けて"</span></span>
+</CodeBlock>
+
+返信そのものは下書きまでに留め、**送信は必ず自分で**。ここでも §1 の線引きが効きます。
+
+<ModeBlock mode="desktop">
+<Callout>
+  デスクトップ版なら MCP の接続は<b>設定画面から数クリック</b>で済みます(OAuth でログインするだけ)。非エンジニアにとっていちばん繋ぎやすい入り口です。具体的な接続手順は第3部の MCP の章で扱います。
+</Callout>
+</ModeBlock>
+
+<ModeBlock mode="terminal">
+<Callout>
+  ターミナル版では <code class="inline">claude mcp add</code> で接続を追加します。設定の詳細は第3部の MCP の章にまとめてあります。
+</Callout>
+</ModeBlock>
+
+## §6 まずは一つだけ自動化する
+
+三つの事例に共通するのは、**全部ではなく一工程だけ**を切り出している点です。最後に始め方を一つに絞ります。
+
+- **題材を選ぶ** — 今いちばん面倒な単純作業を一つだけ思い浮かべる。
+- **形を決める** — 「何を入れたら、何を出してほしいか」を一行で書く(§2 の SPEC のミニ版)。
+- **頼んで確かめる** — 結果を必ず人がチェック。良ければ次回からその頼み方を使い回す。
+
+コードを書かなくても、Claude Code はあなたの事務作業の相棒になります。次の章では、この発想をさらに広げた働き方の事例を見ていきます。
