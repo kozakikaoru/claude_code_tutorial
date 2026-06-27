@@ -1,0 +1,63 @@
+---
+/**
+ * Sidebar.astro — 部・章ナビ（Content Collections から自動生成 / design.md §6.3）
+ * groupByPart の結果をループして nav-section を生成。現在地に is-active。
+ * goo の「しずくレール」付き。モバイルはドロワー（挙動は SidebarScript）。
+ */
+import { groupByPart, chapterPath, type Chapter } from '../utils/chapters';
+import { href } from '../utils/url';
+
+interface Props {
+  sorted: Chapter[];
+  currentId?: string;
+}
+const { sorted, currentId } = Astro.props;
+const groups = groupByPart(sorted);
+
+// 章番号表示用（部番号.部内連番）。例: 初級の 1 章目 -> "1.1"
+function idxLabel(partNo: string, i: number): string {
+  return `${parseInt(partNo, 10)}.${i + 1}`;
+}
+---
+<aside class="sidebar" id="sidebar">
+  <a class="brand" href={href('/')}>
+    <span class="brand-mark" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <path d="M5 8l4 4-4 4" stroke="#f5b14c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M13 16h6" stroke="#5cc8d6" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </span>
+    <span>
+      <span class="brand-name">Claude Code <em>道場</em></span>
+      <span class="brand-sub">Dojo · 実践チュートリアル</span>
+    </span>
+  </a>
+
+  <nav class="nav" aria-label="章ナビゲーション">
+    {groups.map((g) => (
+      <div class="nav-section">
+        <div class="nav-head">
+          <span class="num">{g.part.no}</span><span>{g.part.label}</span>
+        </div>
+        <ul class="nav-list">
+          <span class="drip-rail" aria-hidden="true"><i class="blob-drop"></i></span>
+          {g.chapters.map((c, i) => {
+            const active = c.id === currentId;
+            return (
+              <li>
+                <a
+                  class={`nav-link${active ? ' is-active' : ''}`}
+                  href={href(chapterPath(c.id))}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  <span class="idx">{idxLabel(g.part.no, i)}</span>
+                  <span>{c.data.title}</span>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    ))}
+  </nav>
+</aside>

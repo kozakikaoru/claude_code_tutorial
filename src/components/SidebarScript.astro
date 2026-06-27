@@ -1,0 +1,60 @@
+---
+/**
+ * SidebarScript.astro — サイドバーの挙動（goo しずくレール + モバイルドロワー / design.md §6.3）
+ * 全ページ 1 つ置く inline 島。
+ *   - drip-rail: アクティブ位置へ goo の玉がとろっと寄る。ホバーで粒へ吸い寄せ。
+ *   - drawer: ハンバーガーで開閉、scrim/リンククリックで閉じる。
+ */
+---
+<script is:inline>
+  /* ---- 章ナビ: アクティブ位置へ goo のしずくが寄る ---- */
+  (function () {
+    function settle(rail) {
+      var list = rail.parentElement;
+      var blob = rail.querySelector('.blob-drop');
+      if (!blob) return;
+      var active = list.querySelector('.nav-link.is-active');
+      var target = active || list.querySelector('.nav-link');
+      if (!target) return;
+      var listRect = list.getBoundingClientRect();
+      var tRect = target.getBoundingClientRect();
+      var y = tRect.top - listRect.top + tRect.height / 2 - 5;
+      blob.style.top = y + 'px';
+      blob.style.opacity = active ? '.95' : '0';
+      blob.style.height = '10px';
+    }
+    function all() { document.querySelectorAll('.drip-rail').forEach(settle); }
+    window.addEventListener('load', all);
+    window.addEventListener('resize', all);
+    all();
+
+    document.querySelectorAll('.nav-section').forEach(function (sec) {
+      var rail = sec.querySelector('.drip-rail');
+      var blob = rail ? rail.querySelector('.blob-drop') : null;
+      var list = sec.querySelector('.nav-list');
+      if (!blob || !list) return;
+      list.querySelectorAll('.nav-link').forEach(function (lk) {
+        lk.addEventListener('mouseenter', function () {
+          var listRect = list.getBoundingClientRect();
+          var r = lk.getBoundingClientRect();
+          blob.style.opacity = '.95';
+          blob.style.top = r.top - listRect.top + r.height / 2 - 5 + 'px';
+        });
+      });
+      list.addEventListener('mouseleave', function () { settle(rail); });
+    });
+  })();
+
+  /* ---- mobile drawer ---- */
+  (function () {
+    var sb = document.getElementById('sidebar');
+    var ham = document.getElementById('hamburger');
+    var scrim = document.getElementById('scrim');
+    if (!sb || !ham || !scrim) return;
+    function open() { sb.classList.add('open'); scrim.classList.add('show'); }
+    function close() { sb.classList.remove('open'); scrim.classList.remove('show'); }
+    ham.addEventListener('click', open);
+    scrim.addEventListener('click', close);
+    sb.querySelectorAll('.nav-link').forEach(function (a) { a.addEventListener('click', close); });
+  })();
+</script>

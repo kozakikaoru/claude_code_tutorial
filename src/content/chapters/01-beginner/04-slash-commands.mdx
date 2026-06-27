@@ -1,0 +1,117 @@
+---
+title: 必須スラッシュコマンド集
+part: beginner
+order: 5
+level: 初級
+summary: 毎日使う「/」コマンドを一気に覚えます。何をするかだけでなく「いつ使うか」まで添えたので、リファレンスとして手元に置けます。clear と compact の違い、model でのモデル切替も丁寧に。
+readingTime: 7
+updated: 2026-06-27
+---
+
+ここまでで、自然言語で指示を出してタスクを回せるようになりました。この章では、その対話をもっと快適にする <Term id="slash-command">スラッシュコマンド</Term> をまとめて覚えます。最初に全部暗記する必要はありません。「こういう操作があったな」と思い出せれば十分です。
+
+## §1 スラッシュコマンドとは
+
+スラッシュコマンドは、入力欄で `/`(スラッシュ)から始めて打ち込む **組み込みの命令** です。普段は「テストを直して」のような自然文を入力しますが、`/clear` や `/help` のように、Claude への依頼ではなく **ツールそのものを操作したいとき** に使います。
+
+たとえば「会話をリセットしたい」「モデルを切り替えたい」「終了したい」——こうした操作は自然文で頼むより、決まったコマンドを打つ方が速くて確実です。
+
+<ModeBlock mode="terminal">
+ターミナル版では、入力欄で `/` を打った瞬間に **候補が一覧で出てきます**。そのまま文字を続けて絞り込み、`Tab` や `Enter` で確定できます。コマンド名をうろ覚えでも、`/` さえ打てば思い出せる仕組みです。
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+デスクトップアプリ版でも、チャット欄で `/` を打つと **候補が一覧で出てきます**。さらに、同じ操作の多くは **コマンドパレットやメニュー** からもボタンで実行できます。コマンド名を覚えていなくても、GUI 側の対応する場所を探せば同じことができます。
+</ModeBlock>
+
+## §2 まず覚える必須コマンド
+
+毎日のように使う基本コマンドを表にまとめました。「何をする」と「いつ使う」をセットで押さえてください。
+
+| コマンド | 何をする | いつ使う |
+|---|---|---|
+| `/help` | コマンドの一覧と使い方を表示する | 何ができるか忘れたとき、まず最初に |
+| `/init` | リポジトリを解析して <Term id="claude-md">CLAUDE.md</Term> の雛形を生成する | 新しいプロジェクトで使い始めるとき |
+| `/clear` | 会話履歴をすべてリセットする | 別の話題に切り替えるとき |
+| `/compact` | 会話を圧縮して文脈を保ったまま続ける | 会話が長くなってきたとき |
+| `/model` | 使うモデル(Opus / Sonnet / Haiku)を切り替える | タスクの難しさに合わせたいとき |
+| `/permissions` | どこまで自動で実行してよいかの権限を設定する | 確認の頻度を調整したいとき |
+| `/review` | 変更内容のコードレビューを依頼する | コミットや PR の前の最終チェックに |
+| `/exit` | セッションを終了する | 作業を終えるとき |
+
+<Callout>
+  この 8 つを覚えれば、初級で困ることはまずありません。なかでも <code class="inline">/help</code> は「迷ったらこれ」の入口です。手が止まったら、まず <code class="inline">/help</code> を打って一覧を眺めてみてください。
+</Callout>
+
+## §3 `/clear` と `/compact` の違い
+
+この二つは「会話が長くなってきた」ときに使う点では似ていますが、**やることが正反対** なので、ここだけは区別して覚えてください。
+
+- **`/clear`** … 会話履歴を **まっさらに消します**。前のやり取りは引き継ぎません。話題がガラッと変わるときに使います。
+- **`/compact`** … 会話を **要約して圧縮し、文脈を保ったまま続けます**。これまでの流れを覚えていてほしいけれど、履歴が膨らみすぎたときに使います。
+
+<Callout type="warn">
+  <b>消したいのか、続けたいのかで選ぶ。</b> 別件に移るなら <code class="inline">/clear</code>(リセット)、同じ作業の続きで身軽にしたいだけなら <code class="inline">/compact</code>(圧縮継続)です。続きの作業中にうっかり <code class="inline">/clear</code> を打つと、それまでの文脈が失われて説明し直しになります。
+</Callout>
+
+## §4 `/model` でモデルを切り替える
+
+`/model` は、使う <Term id="models">モデル(Opus / Sonnet / Haiku)</Term> を切り替えるコマンドです。これは少し丁寧に説明します。モデルには **賢さ・速さ・コスト** のトレードオフがあるからです。
+
+- **Opus** … 最も賢く、難しい設計や込み入ったバグなど **難所向き**。そのぶん遅く、コストも高めです。
+- **Sonnet** … 賢さと速さの **バランス型**。日常の実装の多くはこれで十分こなせます。
+- **Haiku** … **高速・低コスト**。単純な作業や、軽い質問をたくさん投げたいときに向きます。
+
+考え方はシンプルです。**難しいタスクには賢いモデルを、軽いタスクには速いモデルを** 割り当てます。常に最上位を使う必要はありません。詰まったら `/model` で Opus に上げ、軽い作業に戻ったら下げる——この使い分けが、待ち時間とコストの両方を抑えるコツです。
+
+<Callout>
+  迷ったら <strong>Sonnet のまま</strong> で構いません。「うまくいかない」「難しそう」と感じたときに <code class="inline">/model</code> で上のモデルへ切り替える、くらいの気持ちで十分です。
+</Callout>
+
+## §5 これから出てくるコマンドの予告
+
+スラッシュコマンドには、初級では深入りしないものもあります。名前だけ先に紹介しておきます。中級で本格的に扱います。
+
+- **`/agents`** … <Term id="subagent">サブエージェント</Term>(専門特化した別コンテキストの助っ人)を作成・管理するコマンドです。「これを使いこなせてやっと中級」と言われる、本サイトの山場で詳しく扱います。
+- **`/hooks`** … <Term id="hook">フック</Term>(Claude の動作の節目で自動実行する自前の処理)を確認するコマンドです。編集後の自動整形や危険コマンドの遮断などを仕込めます。
+
+いまは「そういうコマンドもある」と頭の隅に置くだけで大丈夫です。
+
+## §6 モードによる違い
+
+最後に、二つのモードでのスラッシュコマンドの扱いを整理します。コマンド自体は共通で、**呼び出し方が増える** イメージです。
+
+<ModeBlock mode="terminal">
+ターミナル版では、入力欄で `/` を打つと候補が補完されます。下の例のように、打ち始めると一致するコマンドが並びます。
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+デスクトップアプリ版でも `/` で同じ候補が出ます。加えて、よく使うコマンドは **コマンドパレットやメニュー** からボタンで実行できます。下の例で、ターミナルの補完に対応する GUI 側の入口を確認してください。
+</ModeBlock>
+
+<CodeBlock badge="例">
+  <Fragment slot="title">
+    <span class="mode-only for-terminal">zsh — claude</span>
+    <span class="mode-only for-desktop">コマンドパレット</span>
+  </Fragment>
+<span class="line mode-only for-terminal"><span class="sx-com"># 入力欄で「/」を打つと候補が補完される</span></span>
+<span class="line mode-only for-terminal"><span class="prompt cy">&gt;</span> <span class="sx-key">/co</span><span class="caret" aria-hidden="true"></span></span>
+<span class="line mode-only for-terminal"> </span>
+<span class="line mode-only for-terminal"><span class="sx-dim">  ⎿ </span><span class="sx-fn">/compact</span>  <span class="sx-dim">会話を圧縮して継続</span></span>
+<span class="line mode-only for-terminal"><span class="sx-dim">  ⎿ </span><span class="sx-fn">/config</span>   <span class="sx-dim">設定を開く</span></span>
+<span class="line mode-only for-terminal"> </span>
+<span class="line mode-only for-terminal"><span class="sx-com"># Tab / Enter で確定</span></span>
+<span class="line mode-only for-desktop"><span class="sx-com"># チャット欄で「/」を打つと候補が出る</span></span>
+<span class="line mode-only for-desktop"><span class="prompt cy">あなた</span>  <span class="sx-key">/co</span></span>
+<span class="line mode-only for-desktop"> </span>
+<span class="line mode-only for-desktop"><span class="sx-dim">  ▸ </span><span class="sx-fn">/compact</span>  <span class="sx-dim">会話を圧縮して継続</span></span>
+<span class="line mode-only for-desktop"><span class="sx-dim">  ▸ </span><span class="sx-fn">/config</span>   <span class="sx-dim">設定を開く</span></span>
+<span class="line mode-only for-desktop"> </span>
+<span class="line mode-only for-desktop"><span class="sx-dim"># 同じ操作はメニューのボタンからも実行できる</span></span>
+</CodeBlock>
+
+<Callout>
+  <b>呼び出し方が違うだけで、中身は同じ。</b> ターミナルで <code class="inline">/clear</code> を打つのも、デスクトップでメニューから会話をリセットするのも、結果は変わりません。自分が使いやすい入口を選んでください。
+</Callout>
+
+これでよく使うスラッシュコマンドはひととおり押さえました。次章では、失敗しても安心して試せる <Term id="rewind">巻き戻し</Term> の仕組みを学びます。

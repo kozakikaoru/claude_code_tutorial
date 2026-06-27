@@ -1,0 +1,40 @@
+---
+/**
+ * Pager.astro — 前/次の章カード（design.md §6.4）
+ * [...slug].astro が整列配列の隣として算出した prev/next を受け取り描画。
+ * 先頭章の prev は「コース案内（index）」、末尾章は next を非表示にする。
+ */
+import { chapterPath, type Chapter } from '../utils/chapters';
+import { href } from '../utils/url';
+
+interface Props {
+  prev?: Chapter;
+  next?: Chapter;
+}
+const { prev, next } = Astro.props;
+const prevHref = prev ? href(chapterPath(prev.id)) : href('/');
+const prevTitle = prev ? prev.data.title : 'コース案内';
+---
+<nav class="pager" aria-label="章送り">
+  <a class="prev" href={prevHref}>
+    <span class="dir">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 6l-6 6 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      前の章
+    </span>
+    <span class="pg-title">{prevTitle}</span>
+  </a>
+  {next ? (
+    <a class="next" href={href(chapterPath(next.id))}>
+      <span class="dir">
+        次の章
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M10 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      <span class="pg-title">{next.data.title}</span>
+    </a>
+  ) : (
+    <span class="next is-disabled" aria-hidden="true">
+      <span class="dir">次の章</span>
+      <span class="pg-title">（このコースの最後です）</span>
+    </span>
+  )}
+</nav>

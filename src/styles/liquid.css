@@ -1,0 +1,176 @@
+/* ============================================================
+   liquid.css — 液体効果の実装層
+   blob 背景 / veil / liquid glass ユーティリティ / goo（メタボール）/
+   .mode-only（モード出し分け）/ .term（用語ツールチップ）/
+   reduced-motion フォールバック。
+   すべて tokens.css の変数を参照する。
+   ============================================================ */
+
+/* ---- LIQUID BACKGROUND（とろみのある液体色グローの土台） ---- */
+.liquid-bg {
+  position: fixed; inset: -12vh -12vw; z-index: -2; overflow: hidden;
+  pointer-events: none; filter: saturate(.85);
+}
+.blob {
+  position: absolute; border-radius: 50%;
+  filter: blur(70px); opacity: .55; mix-blend-mode: screen;
+  will-change: transform;
+}
+.blob.b1 { width: 46vw; height: 46vw; left: -6vw; top: -4vh;
+  background: radial-gradient(circle at 40% 40%, var(--amber) 0%, transparent 66%);
+  animation: drift1 26s ease-in-out infinite; }
+.blob.b2 { width: 42vw; height: 42vw; right: -8vw; top: 6vh;
+  background: radial-gradient(circle at 50% 50%, var(--cyan) 0%, transparent 66%);
+  opacity: .42; animation: drift2 32s ease-in-out infinite; }
+.blob.b3 { width: 40vw; height: 40vw; left: 24vw; bottom: -14vh;
+  background: radial-gradient(circle at 50% 50%, var(--ruby) 0%, transparent 64%);
+  opacity: .34; animation: drift3 38s ease-in-out infinite; }
+.blob.b4 { width: 30vw; height: 30vw; right: 14vw; bottom: -6vh;
+  background: radial-gradient(circle at 50% 50%, var(--violet) 0%, transparent 64%);
+  opacity: .3; animation: drift1 30s ease-in-out infinite reverse; }
+
+@keyframes drift1 {
+  0%,100% { transform: translate(0,0) scale(1); }
+  33% { transform: translate(5vw,4vh) scale(1.08); }
+  66% { transform: translate(-3vw,2vh) scale(.96); }
+}
+@keyframes drift2 {
+  0%,100% { transform: translate(0,0) scale(1); }
+  50% { transform: translate(-5vw,5vh) scale(1.1); }
+}
+@keyframes drift3 {
+  0%,100% { transform: translate(0,0) scale(1); }
+  40% { transform: translate(4vw,-4vh) scale(1.06); }
+  70% { transform: translate(-4vw,-2vh) scale(.94); }
+}
+
+/* faint "liquid surface" wash で全体に奥行きを与える */
+.liquid-veil {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(120% 80% at 70% -10%, rgba(245,177,76,.05), transparent 55%),
+    radial-gradient(120% 90% at 0% 110%, rgba(92,200,214,.045), transparent 55%),
+    linear-gradient(180deg, rgba(26,26,30,.0) 60%, rgba(20,20,24,.5) 100%);
+}
+
+/* SVG フィルタのホスト（オフスクリーン） */
+.filter-host { position: absolute; width: 0; height: 0; pointer-events: none; overflow: hidden; }
+
+/* ============================================================
+   GLASS ユーティリティ — 液体ガラス面の共通レシピ
+   半透明 + backdrop-filter blur/saturate + 内側ハイライト + 影。
+   サイドバー・topbar・callout・pager・コードスラブ・ツールチップ等を
+   この同じレシピへ寄せ、全ページで質感を揃える（design.md §5.3b）。
+   ============================================================ */
+.glass {
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  backdrop-filter: blur(12px) saturate(1.4);
+  border: 1px solid var(--glass-edge);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 16px 36px -28px #000;
+}
+.glass-strong {
+  background: var(--glass-2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.7) brightness(1.06);
+  backdrop-filter: blur(20px) saturate(1.7) brightness(1.06);
+  border: 1px solid var(--glass-edge);
+  box-shadow: 0 22px 50px -18px #000, inset 0 1px 0 rgba(255,255,255,.14);
+}
+
+/* ---- mode-conditional prose（ブロック/インラインの出し分け） ---- */
+.mode-only { display: none; }
+body[data-mode="terminal"] .mode-only.for-terminal { display: block; }
+body[data-mode="desktop"]  .mode-only.for-desktop  { display: block; }
+span.mode-only { display: none; }
+body[data-mode="terminal"] span.mode-only.for-terminal { display: inline; }
+body[data-mode="desktop"]  span.mode-only.for-desktop  { display: inline; }
+
+/* JS 無効時のフォールバック: data-mode が無ければ terminal を見せる（R6） */
+body:not([data-mode]) .mode-only.for-terminal { display: block; }
+body:not([data-mode]) span.mode-only.for-terminal { display: inline; }
+
+/* ---- tooltip / term — ぷるんとした液体ガラスのポップ ---- */
+.term {
+  position: relative; color: var(--ink); cursor: help;
+  border-bottom: 1.5px dotted var(--cyan); padding-bottom: 1px;
+  transition: color .15s;
+}
+.term:hover, .term.open { color: var(--cyan); }
+.term .pop {
+  position: absolute; left: 50%; bottom: calc(100% + 13px);
+  transform: translateX(-50%) translateY(8px) scale(.97);
+  width: 308px; max-width: 78vw; z-index: 50;
+  border-radius: 14px; padding: 15px 17px; text-align: left;
+  background: var(--glass-2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.7) brightness(1.06);
+  backdrop-filter: blur(20px) saturate(1.7) brightness(1.06);
+  border: 1px solid var(--glass-edge);
+  box-shadow:
+    0 22px 50px -18px #000,
+    0 0 0 1px rgba(92,200,214,.10),
+    0 0 40px -16px var(--cyan-glow),
+    inset 0 1px 0 rgba(255,255,255,.14);
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .2s, transform .28s cubic-bezier(.4,1.3,.4,1), visibility .2s;
+}
+.term .pop::before {
+  content: ""; position: absolute; left: 14px; right: 14px; top: 6px; height: 34%;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,.10), transparent);
+  pointer-events: none;
+}
+.term:hover .pop, .term.open .pop {
+  opacity: 1; visibility: visible;
+  transform: translateX(-50%) translateY(0) scale(1); pointer-events: auto;
+}
+.term .pop::after {
+  content: ""; position: absolute; top: 100%; left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 12px; height: 12px; margin-top: -6px; background: var(--glass-2);
+  -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  border-right: 1px solid var(--glass-edge); border-bottom: 1px solid var(--glass-edge);
+}
+/* 画面端での簡易クランプ（R12） */
+.term.clamp-left .pop  { left: 0; transform: translateX(0) translateY(8px) scale(.97); }
+.term.clamp-left:hover .pop, .term.clamp-left.open .pop { transform: translateX(0) translateY(0) scale(1); }
+.term.clamp-right .pop { left: auto; right: 0; transform: translateX(0) translateY(8px) scale(.97); }
+.term.clamp-right:hover .pop, .term.clamp-right.open .pop { transform: translateX(0) translateY(0) scale(1); }
+.pop-term {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--cyan); margin-bottom: 6px; display: flex; align-items: center; gap: 7px; position: relative;
+}
+.pop-term::before {
+  content: ""; width: 7px; height: 7px; border-radius: 50% 50% 50% 0; transform: rotate(45deg);
+  background: radial-gradient(circle at 35% 30%, var(--cyan), rgba(92,200,214,.3));
+  box-shadow: 0 0 6px -1px var(--cyan-glow);
+}
+.pop-def { font-size: 13.5px; line-height: 1.65; color: var(--ink-2); margin: 0; position: relative; }
+.pop-def b { color: var(--ink); font-weight: 500; }
+
+/* scrim for mobile drawer */
+.scrim {
+  position: fixed; inset: 0; background: rgba(8,8,10,.55);
+  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  opacity: 0; visibility: hidden; transition: opacity .24s; z-index: 40;
+}
+.scrim.show { opacity: 1; visibility: visible; }
+
+/* ============================================================
+   prefers-reduced-motion — 過度な動きを止める配慮（design.md §5.5）
+   漂い・流れ・きらめき・気泡・屈折・goo の千切れを停止し、
+   重い displacement / goo filter も外して静的フォールバックに。
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+  .blob { opacity: .32; }
+  :root { --refract: none; }
+  h1.title .accent {
+    -webkit-text-fill-color: initial; color: var(--amber); background: none;
+  }
+  .liquid .b { display: none; }
+  .pop-bubble { display: none !important; }
+  /* goo の千切れは動きが要なので、静止時は素のサム/玉だけに */
+  .mt-liquid { filter: none; }
+  .mt-liquid .tail { display: none; }
+  .drip-rail { filter: none; }
+}

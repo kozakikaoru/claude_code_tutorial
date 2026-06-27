@@ -1,0 +1,59 @@
+---
+/**
+ * StepNav.astro — 章内ステップ進捗（ドット / 多い章はバー + 番号）+ 前後ボタン（ADR-003 §4.1）
+ * 見た目だけを持つ。表示切替・ドット生成・disabled 制御は StepDeck（is:inline 島）が行う。
+ *
+ * 章境界:
+ *   - 先頭ステップで「前へ」を押すと前章末尾へ（prevHref = 前章 #step-<最終>）。
+ *   - 最終ステップで「次へ」を押すと次章先頭へ（nextHref = 次章 #step-0）。
+ *   これらは通常遷移（フルロード）。章内はページ遷移なしの JS 切替。
+ */
+interface Props {
+  /** この章のステップ総数（step0 含む） */
+  stepCount: number;
+  /** 前章末尾へのリンク（base + #step-N）。先頭章では null */
+  prevHref: string | null;
+  prevTitle: string | null;
+  /** 次章先頭へのリンク（base + #step-0）。末尾章では null */
+  nextHref: string | null;
+  nextTitle: string | null;
+}
+const { stepCount, prevHref, prevTitle, nextHref, nextTitle } = Astro.props;
+// ドットが詰まりすぎる章はバー表記へ（StepDeck も同じ閾値で .as-bar を制御）。
+const BAR_THRESHOLD = 8;
+const initialAsBar = stepCount > BAR_THRESHOLD;
+---
+<nav
+  class:list={['stepnav', { 'as-bar': initialAsBar }]}
+  id="stepNav"
+  data-step-count={stepCount}
+  data-bar-threshold={BAR_THRESHOLD}
+  data-prev-href={prevHref ?? ''}
+  data-prev-title={prevTitle ?? ''}
+  data-next-href={nextHref ?? ''}
+  data-next-title={nextTitle ?? ''}
+  role="group"
+  aria-label="ステップ送り"
+>
+  <button type="button" class="nav-btn prev" data-nav="prev" aria-label="前のステップ">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 6l-6 6 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="lbl">前へ</span>
+  </button>
+
+  <!-- 中央: ドット列（既定）。StepDeck が stepCount ぶんのドットを生成して current を付ける。 -->
+  <div class="dots" role="tablist" aria-label="ステップ一覧"></div>
+
+  <!-- 中央: バー + 番号（多い章）。StepDeck が fill 幅と「N / total」を更新。 -->
+  <div class="meter" aria-hidden="true">
+    <span class="track"><span class="fill"></span></span>
+    <span class="count"><b class="cur">1</b> / <span class="tot">{stepCount}</span></span>
+  </div>
+
+  <button type="button" class="nav-btn next" data-nav="next" aria-label="次のステップ">
+    <span class="lbl">次へ</span>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M10 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+
+  <!-- SR 用: 現在ステップの状態通知（polite） -->
+  <span class="sr-live" id="stepLive" aria-live="polite"></span>
+</nav>

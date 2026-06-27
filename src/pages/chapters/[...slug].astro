@@ -1,0 +1,38 @@
+---
+/**
+ * [...slug].astro — 全章を 1 テンプレで生成（design.md §2.4）
+ * getStaticPaths で整列・スラッグ正規化・前後算出。本体は render() + <Content components> で
+ * MDX を描画。MDX 側は import 不要で <Term>/<ModeBlock> 等を使える（components 一括注入）。
+ * 章を増やしても .astro は触らず、MDX を足すだけ。
+ */
+import { render } from 'astro:content';
+import ChapterLayout from '../../layouts/ChapterLayout.astro';
+import { getSortedChapters, normalizeSlug } from '../../utils/chapters';
+
+// MDX に注入するコンポーネント群（著者は import 不要で使える）
+import Term from '../../components/Term.astro';
+import ModeBlock from '../../components/ModeBlock.astro';
+import ModeText from '../../components/ModeText.astro';
+import Callout from '../../components/Callout.astro';
+import CodeBlock from '../../components/CodeBlock.astro';
+import GlassShowcase from '../../components/GlassShowcase.astro';
+
+export async function getStaticPaths() {
+  const sorted = await getSortedChapters();
+  return sorted.map((entry, idx) => ({
+    params: { slug: normalizeSlug(entry.id) },
+    props: {
+      entry,
+      sorted,
+      prev: idx > 0 ? sorted[idx - 1] : undefined,
+      next: idx < sorted.length - 1 ? sorted[idx + 1] : undefined,
+    },
+  }));
+}
+
+const { entry, sorted, prev, next } = Astro.props;
+const { Content } = await render(entry);
+---
+<ChapterLayout entry={entry} sorted={sorted} prev={prev} next={next}>
+  <Content components={{ Term, ModeBlock, ModeText, Callout, CodeBlock, GlassShowcase }} />
+</ChapterLayout>

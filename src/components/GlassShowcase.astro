@@ -1,0 +1,65 @@
+---
+/**
+ * GlassShowcase.astro — 屈折を主役にしたデモパネル（liquid-final.html の目玉 / design.md §5.3）
+ * 背後の光を液体ガラス越しに歪めて映す。チップに触れると波紋が立つ。
+ * 屈折は --refract 変数で制御（reduced-motion / 未対応時は none / R3）。
+ */
+interface Props {
+  tag?: string;
+  heading?: string;
+  text?: string;
+  chipLabel?: string;
+}
+const {
+  tag = 'Liquid Glass',
+  heading,
+  text = 'このパネルは、奥にあるアンバーとシアンの光を半透明のガラス越しに歪めて映しています。液面のゆらぎ・とろみ・混ざり合いを、控えめに。下のチップに触れると表面が波打ちます。',
+  chipLabel = '触れて波紋を起こす',
+} = Astro.props;
+---
+<div class="glass-showcase">
+  <span class="refract-layer" aria-hidden="true"></span>
+  <span class="plate" aria-hidden="true"></span>
+  <span class="sc-tag"><span class="pip"></span>{tag}</span>
+  {heading ? (
+    <h3 set:html={heading}></h3>
+  ) : (
+    <h3>背後の光を、<em>液体のように</em> 屈折させる</h3>
+  )}
+  <p>{text}</p>
+  <span class="ripple-chip" data-ripple role="button" tabindex="0">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 3c3 4 5 6.5 5 9a5 5 0 11-10 0c0-2.5 2-5 5-9z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+    {chipLabel}
+  </span>
+</div>
+
+<script is:inline>
+  (function () {
+    var RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.querySelectorAll('.ripple-chip[data-ripple]').forEach(function (chip) {
+      if (chip.dataset.bound) return;
+      chip.dataset.bound = '1';
+      function ripple(x, y) {
+        if (RM) return;
+        var r = chip.getBoundingClientRect();
+        var size = Math.max(r.width, r.height) * 1.6;
+        var el = document.createElement('span');
+        el.className = 'rp';
+        el.style.width = el.style.height = size + 'px';
+        el.style.left = x - r.left + 'px';
+        el.style.top = y - r.top + 'px';
+        chip.appendChild(el);
+        setTimeout(function () { el.remove(); }, 720);
+      }
+      chip.addEventListener('mouseenter', function (e) { ripple(e.clientX, e.clientY); });
+      chip.addEventListener('click', function (e) { ripple(e.clientX, e.clientY); });
+      chip.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          var r = chip.getBoundingClientRect();
+          ripple(r.left + r.width / 2, r.top + r.height / 2);
+        }
+      });
+    });
+  })();
+</script>

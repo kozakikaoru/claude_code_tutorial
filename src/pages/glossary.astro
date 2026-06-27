@@ -1,0 +1,68 @@
+---
+/**
+ * glossary.astro — 用語集一覧（ADR-002 / design.md §4.4）
+ * glossary.ts を回して全用語を表示。回遊性と SEO、JS 無効時のフォールバック参照先を兼ねる。
+ * short の `**…**` は <b> に変換（Term.astro と同じ最小パーサ）。
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { glossary } from '../data/glossary';
+import { href } from '../utils/url';
+
+function renderShort(text: string): string {
+  const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return escaped.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+}
+
+const entries = Object.entries(glossary).sort((a, b) =>
+  a[1].term.localeCompare(b[1].term, 'ja'),
+);
+---
+<BaseLayout title="用語集" description="Claude Code チュートリアルに登場する専門用語の一覧と解説。">
+  <main class="gloss">
+    <div class="eyebrow">
+      <a class="chap-no" href={href('/')} style="border:0;">Claude Code 道場</a>
+      <span class="ln"></span>
+      <span>付録B</span>
+    </div>
+    <h1 class="title">用語集</h1>
+    <p class="lede">
+      本文中の点線で下線が引かれた語にカーソルを合わせる（タップする）と、同じ説明がその場に出ます。
+      ここはその一覧です。
+    </p>
+
+    <dl class="gloss-list">
+      {entries.map(([id, g]) => (
+        <div class="gloss-item" id={id}>
+          <dt>{g.term}</dt>
+          <dd set:html={renderShort(g.short)}></dd>
+        </div>
+      ))}
+    </dl>
+
+    <footer class="foot">
+      <a href={href('/')} class="link">← トップへ戻る</a>
+      <span class="sep">·</span>
+      <a href="https://code.claude.com/docs" class="link" rel="noopener noreferrer">公式ドキュメント</a>
+    </footer>
+  </main>
+</BaseLayout>
+
+<style>
+  .gloss { max-width: var(--maxread); margin: 0 auto; padding: 56px clamp(22px, 5vw, 40px) 0; position: relative; z-index: 1; }
+  .gloss .lede { max-width: 60ch; margin-bottom: 36px; }
+  .gloss-list { margin: 0; padding: 0; display: grid; gap: 14px; }
+  .gloss-item {
+    border-radius: 13px; padding: 16px 18px;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(10px) saturate(1.3); backdrop-filter: blur(10px) saturate(1.3);
+    border: 1px solid var(--glass-edge2);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+    scroll-margin-top: 24px;
+  }
+  .gloss-item dt {
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--cyan); margin-bottom: 7px;
+  }
+  .gloss-item dd { margin: 0; font-size: 14.5px; line-height: 1.7; color: var(--ink-2); }
+  .gloss-item dd :global(b) { color: var(--ink); font-weight: 500; }
+</style>

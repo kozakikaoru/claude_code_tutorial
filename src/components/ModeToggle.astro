@@ -1,0 +1,75 @@
+---
+/**
+ * ModeToggle.astro — goo メタボールのモード切替トグル（design.md §3.3）
+ * UI（ガラス枠 + サム + 尾）と挙動（クリック→body[data-mode]→localStorage）を内包。
+ * 初期ビジュアル（サム位置・aria-selected）は is:inline で描画前に pref へ合わせ、FOUC を防ぐ。
+ */
+---
+<div class="mode-toggle" id="modeToggle" data-mode="terminal" role="tablist" aria-label="表示モード切替">
+  <span class="mt-liquid" aria-hidden="true">
+    <span class="thumb"></span>
+    <span class="tail"></span>
+  </span>
+  <button class="mode-btn" data-for="terminal" role="tab" aria-selected="true">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M7 9l3 3-3 3M13 15h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="lbl-lg">ターミナル</span><span class="lbl-sm">CLI</span>
+  </button>
+  <button class="mode-btn" data-for="desktop" role="tab" aria-selected="false">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="12" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M9 20h6M12 16v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+    <span class="lbl-lg">デスクトップ</span><span class="lbl-sm">App</span>
+  </button>
+</div>
+
+<!-- 初期ビジュアル同期（FOUC 回避）: 描画前にトグルの data-mode / aria を pref へ合わせる -->
+<script is:inline>
+  (function () {
+    var pref = document.documentElement.getAttribute('data-mode-pref') || 'terminal';
+    var tg = document.getElementById('modeToggle');
+    if (!tg) return;
+    tg.setAttribute('data-mode', pref);
+    tg.querySelectorAll('.mode-btn').forEach(function (b) {
+      b.setAttribute('aria-selected', b.getAttribute('data-for') === pref ? 'true' : 'false');
+    });
+  })();
+</script>
+
+<!-- 挙動: クリックで body[data-mode] とトグルを更新し localStorage に保存。goo の千切れ演出つき。 -->
+<script is:inline>
+  (function () {
+    var RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var tg = document.getElementById('modeToggle');
+    if (!tg) return;
+    var btns = tg.querySelectorAll('.mode-btn');
+    var tail = tg.querySelector('.mt-liquid .tail');
+
+    function set(mode) {
+      var cur = tg.getAttribute('data-mode');
+      if (cur === mode) return;
+
+      if (!RM && tail) {
+        var goingDesktop = mode === 'desktop';
+        tail.style.left = goingDesktop ? '8px' : 'calc(100% - 25px)';
+        tail.style.transform = 'translateY(-50%) scale(1)';
+        tg.classList.add('dripping');
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            tail.style.left = goingDesktop ? 'calc(100% - 25px)' : '8px';
+            tail.style.transform = 'translateY(-50%) scale(0)';
+          });
+        });
+        setTimeout(function () { tg.classList.remove('dripping'); }, 460);
+      }
+
+      document.body.setAttribute('data-mode', mode);
+      tg.setAttribute('data-mode', mode);
+      btns.forEach(function (b) {
+        b.setAttribute('aria-selected', b.getAttribute('data-for') === mode ? 'true' : 'false');
+      });
+      try { localStorage.setItem('ccdojo-mode', mode); } catch (e) {}
+    }
+
+    btns.forEach(function (b) {
+      b.addEventListener('click', function () { set(b.getAttribute('data-for')); });
+    });
+  })();
+</script>

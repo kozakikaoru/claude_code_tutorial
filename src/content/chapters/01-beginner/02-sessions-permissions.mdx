@@ -1,0 +1,114 @@
+---
+title: セッションと権限モード
+part: beginner
+order: 3
+level: 初級
+summary: 「どこまで自動で実行されるか」を握るのが権限モードです。4 種のモードと切り替え方、そして会話のひとまとまりであるセッションの再開方法を押さえ、安心してタスクを任せる土台を作ります。
+readingTime: 8
+updated: 2026-06-27
+---
+
+前章で最初のタスクを完遂できたら、次に気になるのは「**どこまで勝手にやられるのか**」でしょう。ファイルを書き換えられるのは怖いけれど、毎回ぜんぶ確認するのも面倒——その塩梅を握るのが <Term id="permission-mode">権限モード</Term> です。この章では 4 つのモードと切り替え方、そして会話のひとまとまりである <Term id="session">セッション</Term> の再開方法を学びます。これが分かれば、安心して仕事を任せられるようになります。
+
+## §1 権限モードとは——「自動の度合い」を決めるダイヤル
+
+Claude Code はファイルを編集したりコマンドを実行したりできますが、その一つひとつを **どこまで人に確認するか** は、あなたが選べます。これが権限モードです。アクセルの踏み込み具合を決めるダイヤルだと思ってください。慎重にいきたいときは確認多めに、慣れてきたら自動多めに、と回せます。
+
+モードは次の 4 種類です。
+
+| モード | 何が起きるか | いつ使うか |
+|---|---|---|
+| `default` | 読み取りは許可。編集・コマンド実行は **その都度確認** を求める | 標準。まずはこれ。中身を見ながら一歩ずつ進めたいとき |
+| `plan`（<Term id="plan-mode">プランモード</Term>） | **編集もコマンド実行もしない**。何をするかの計画だけを立てて見せる | 大きめ・複雑なタスクの前に、方針をレビューしたいとき |
+| `acceptEdits` | ファイル編集の確認を **スキップ**（自動承認）。コマンドは確認 | 方針が固まり、細かい編集を任せて速く進めたいとき |
+| `bypassPermissions` | 確認なしの **全権委任**（危険） | 原則使わない。信頼済みの隔離環境での限定運用のみ |
+
+`default` は「読むのは自由、書く前にひと声かける」という安全寄りの初期設定です。`plan` は読むだけで提案を見せるので、いきなり手を動かされる心配がありません。`acceptEdits` は編集の確認だけを省くので、テンポは上がりますが何が変わったかは後で必ず差分で見ましょう。そして `bypassPermissions` は、文字どおり何も聞かずに実行します。便利そうに見えますが、初心者のうちは触らないのが鉄則です（理由は §4 で詳しく）。
+
+<Callout>
+  <b>権限モードは「賢さ」ではなく「自動の度合い」の設定です。</b> どのモードでもモデルの能力は同じ。変わるのは「実行前にあなたに確認するかどうか」だけです。まずは安全側の <code class="inline">default</code> と <code class="inline">plan</code> で十分に戦えます。
+</Callout>
+
+## §2 モードを切り替える / いま何モードかを知る
+
+モードは作業の途中でいつでも切り替えられます。切り替え方と「現在のモードの見え方」は、ターミナル版とデスクトップ版で少し違います。右上のトグルで自分の環境を選んでから読んでください。
+
+<ModeBlock mode="terminal">
+ターミナル版では、対話中に <code class="inline">Shift+Tab</code> を押すたびにモードが **巡回** します。順番は「Default →（Auto-Accept Edits）→ Plan →…」と切り替わり、いま選ばれているモードは画面下部の <Term id="status-line">ステータスライン</Term> に表示されます。打ち込む前にここを見れば、「今は確認ありか、自動か」がひと目で分かります。
+
+<CodeBlock title="zsh — claude" badge="CLI">
+<span class="line"><span class="sx-com"># Shift+Tab を押すたびにモードが巡回する</span></span>
+<span class="line"><span class="sx-dim">  ⎿ </span><span class="sx-fn">mode</span> <span class="sx-flag">plan</span> <span class="sx-dim">（解析のみ・編集も実行もしない）</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-com"># 画面下部のステータスラインに現在モードが出る</span></span>
+<span class="line"><span class="sx-dim">  status: </span><span class="sx-key">plan</span> <span class="sx-dim">·</span> <span class="sx-key">Sonnet</span> <span class="sx-dim">·</span> <span class="sx-flag">~/projects/my-app</span></span>
+<span class="line"> </span>
+<span class="line"><span class="prompt cy">&gt;</span> <span class="caret" aria-hidden="true"></span></span>
+</CodeBlock>
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+デスクトップ版では、モードは画面の **トグルやメニュー** から選びます。<code class="inline">Shift+Tab</code> での巡回も使えますが、UI 上のスイッチで「計画だけ」「編集を自動承認」などを明示的に選べるのが分かりやすい点です。現在どのモードかは画面上の表示で確認できます。
+
+<CodeBlock title="モード表示" badge="アプリ">
+<span class="line"><span class="sx-com"># 画面上のトグル / メニューでモードを選ぶ</span></span>
+<span class="line"><span class="prompt cy">モード</span>  <span class="sx-key">プラン</span> <span class="sx-dim">（解析のみ・編集も実行もしない）</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">  現在: </span><span class="sx-key">プラン</span> <span class="sx-dim">·</span> <span class="sx-key">Sonnet</span> <span class="sx-dim">·</span> <span class="sx-flag">my-app</span></span>
+</CodeBlock>
+</ModeBlock>
+
+<Callout>
+  <b>迷ったら、まず <code class="inline">plan</code> に。</b> 大きめの依頼ほど、いきなり実行させず「何をするつもりか」を先に見せてもらうのが安全です。計画を読んで納得してから <code class="inline">default</code> や <code class="inline">acceptEdits</code> に切り替えて実行——この往復が <Term id="approval-flow">承認フロー</Term> の基本形で、手戻りもコストも減らせます。
+</Callout>
+
+## §3 セッションとは——会話・フォルダー・変更のひとまとまり
+
+ここまで「作業の途中で」と書いてきましたが、その **作業のひとまとまり** がセッションです。セッションは「**会話履歴＋対象フォルダー＋加えた変更**」を 1 単位として持ちます。つまり、何を話したか・どのプロジェクトで作業したか・どこを変更したか、がセットで記録されているわけです。
+
+うれしいのは、このひとまとまりを **あとから再開** できること。「昨日の続きをやりたい」「さっき閉じたあの作業に戻りたい」というとき、最初から説明し直す必要はありません。
+
+<ModeBlock mode="terminal">
+ターミナル版では、コマンドのオプションで再開します。
+
+<CodeBlock title="zsh — claude" badge="CLI">
+<span class="line"><span class="sx-com"># 直前のセッションをそのまま再開（continue）</span></span>
+<span class="line"><span class="prompt">$</span> claude <span class="sx-flag">-c</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-com"># 過去のセッション一覧から選んで再開（resume）</span></span>
+<span class="line"><span class="prompt">$</span> claude <span class="sx-flag">--resume</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">  ⎿ </span><span class="sx-dim">過去のセッションが一覧表示され、選ぶと会話履歴ごと復元される</span></span>
+</CodeBlock>
+
+`-c` は「直前の 1 つ」をすぐ開く近道、`--resume` は「複数の中から選ぶ」入口です。セッションには名前を付けて整理することもできるので、用途ごとに分けておくと後から探しやすくなります。
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+デスクトップ版では、過去のセッションが **サイドバーに一覧** で並びます。クリックすれば会話履歴ごとその場で復元され、続きから作業できます。複数の作業を並行して持っておき、行き来するのも簡単です。
+
+<CodeBlock title="セッション一覧" badge="アプリ">
+<span class="line"><span class="sx-com"># サイドバーに過去のセッションが並ぶ</span></span>
+<span class="line"><span class="sx-fn">●</span> <span class="sx-str">認証まわりのリファクタ</span>      <span class="sx-dim">my-app · 今日</span></span>
+<span class="line"><span class="sx-dim">○</span> <span class="sx-str">テストの追加</span>              <span class="sx-dim">my-app · 昨日</span></span>
+<span class="line"><span class="sx-dim">○</span> <span class="sx-str">README の整備</span>            <span class="sx-dim">docs · 3 日前</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">  → クリックで会話履歴ごと復元される</span></span>
+</CodeBlock>
+</ModeBlock>
+
+<Callout>
+  <b>セッションは消えません。</b> 閉じても会話・フォルダー・変更はひとまとまりで残り、あとから呼び戻せます。だから「とりあえず試して、ダメなら閉じる」を気軽にやって大丈夫。なお作業途中の変更そのものを取り消したいときは、別途 <Term id="rewind">巻き戻し</Term> という安全装置があります（後の章で扱います）。
+</Callout>
+
+## §4 安全の基本姿勢——慣れるまでは確認多めで
+
+最後に、初心者がいちばん意識すべき心構えです。結論はシンプルで、**慣れるまでは `default` か `plan` を中心に使う**こと。この 2 つなら、編集や実行の前に必ずあなたの目を通せます。何が起きるかを見ながら進められるので、Claude Code の挙動への勘所も早く身につきます。
+
+`acceptEdits` は便利ですが、自動で編集が入る分、**変更内容を後で必ず確認する**習慣とセットで使ってください。差分を読まずに任せ続けると、意図しない変更に気づけません。
+
+<Callout type="warn">
+  <b><code class="inline">bypassPermissions</code> を安易に使わないでください。</b> このモードは確認をいっさい省いて全権委任します。ファイル削除や危険なコマンドも、止める間もなく実行され得ます。「速いから」で常用するのは事故のもと。使うとしても、壊れても困らない隔離環境（使い捨てのコンテナなど）に限り、内容を理解したうえで——が大前提です。初級のうちは存在を知っておくだけで十分です。
+</Callout>
+
+権限モードで「自動の度合い」を握り、セッションで「作業のまとまり」を扱えるようになれば、Claude Code に安心してタスクを任せる準備が整いました。次章では、毎セッション自動で読まれるプロジェクトの取扱説明書 <Term id="claude-md">CLAUDE.md</Term> を用意して、「うちのやり方」を最初から分かってもらう方法に進みます。

@@ -1,0 +1,11 @@
+---
+/**
+ * ModeText.astro — インライン（文中語句）のモード出し分け（ADR-001 / design.md §3.2b）
+ * 例: いま選んでいるのは <ModeText mode="terminal">ターミナル版</ModeText>…
+ */
+interface Props {
+  mode: 'terminal' | 'desktop';
+}
+const { mode } = Astro.props;
+---
+<span class={`mode-only for-${mode}`}><slot /></span>

@@ -1,0 +1,55 @@
+/* ============================================================
+   tokens.css — デザイントークン（唯一の出どころ）
+   liquid-final.html の :root をそのまま移植。色・liquid 値は
+   すべてここで定義し、他の CSS / 全コンポーネントは var(--…) 経由で参照する。
+   ここを変えれば全ページの見た目が一斉に変わる（design.md §5.1）。
+   ============================================================ */
+:root {
+  /* --- Editorial Charcoal palette --- */
+  --bg:        #1a1a1e;
+  --bg-2:      #1f1f24;
+  --bg-3:      #232329;
+  --bg-4:      #2b2b32;
+  --ink:       #ecebe6;
+  --ink-2:     #b6b4ac;
+  --ink-3:     #7c7a73;
+  --rule:      #34343c;
+  --rule-2:    #43434c;
+
+  --amber:     #f5b14c;
+  --amber-dim: #c98f3d;
+  --amber-deep:#a9742c;
+  --amber-glow:rgba(245,177,76,.16);
+  --cyan:      #5cc8d6;
+  --cyan-deep: #2f8d99;
+  --cyan-glow: rgba(92,200,214,.14);
+
+  /* --- liquid 差し色（彩度抑えめ・控えめネオン） --- */
+  --ruby:      #d36b7e;
+  --ruby-glow: rgba(211,107,126,.13);
+  --violet:    #9a89d8;
+  --violet-glow:rgba(154,137,216,.12);
+
+  /* liquid glass surfaces */
+  --glass:       rgba(38,38,46,.55);
+  --glass-2:     rgba(44,44,54,.62);
+  --glass-edge:  rgba(255,255,255,.10);
+  --glass-edge2: rgba(255,255,255,.05);
+
+  /* syntax（コード配色） */
+  --sx-key:    #f5b14c;
+  --sx-str:    #9fd1a0;
+  --sx-flag:   #5cc8d6;
+  --sx-com:    #6b6a63;
+  --sx-fn:     #d9b9f0;
+
+  --font-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-sans:  'Noto Sans JP', system-ui, -apple-system, 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+  --font-mono:  'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+  --sidebar-w: 290px;
+  --maxread: 720px;
+
+  /* reduced-motion / 未対応時に 'none' へ差し替えるスイッチ（design.md §5.5 / R3） */
+  --refract: url(#liquidGlass);
+}

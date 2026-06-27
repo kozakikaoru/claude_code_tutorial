@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code 道場 — ステップ型モック</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* --- Editorial Charcoal palette (liquid-final 継承) --- */
+    --bg:        #1a1a1e;
+    --bg-2:      #1f1f24;
+    --bg-3:      #232329;
+    --bg-4:      #2b2b32;
+    --ink:       #ecebe6;
+    --ink-2:     #b6b4ac;
+    --ink-3:     #7c7a73;
+    --rule:      #34343c;
+    --rule-2:    #43434c;
+
+    --amber:     #f5b14c;
+    --amber-dim: #c98f3d;
+    --amber-deep:#a9742c;
+    --amber-glow:rgba(245,177,76,.16);
+    --cyan:      #5cc8d6;
+    --cyan-deep: #2f8d99;
+    --cyan-glow: rgba(92,200,214,.14);
+
+    --ruby:      #d36b7e;
+    --ruby-glow: rgba(211,107,126,.13);
+    --violet:    #9a89d8;
+    --violet-glow:rgba(154,137,216,.12);
+
+    --glass:       rgba(38,38,46,.55);
+    --glass-2:     rgba(44,44,54,.62);
+    --glass-edge:  rgba(255,255,255,.10);
+    --glass-edge2: rgba(255,255,255,.05);
+
+    --sx-key:    #f5b14c;
+    --sx-str:    #9fd1a0;
+    --sx-flag:   #5cc8d6;
+    --sx-com:    #6b6a63;
+    --sx-fn:     #d9b9f0;
+
+    --font-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+    --font-sans:  'Noto Sans JP', system-ui, -apple-system, 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+    --font-mono:  'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+    --sidebar-w: 290px;
+    --maxstep: 760px;
+
+    --refract: url(#liquidGlass);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:var(--font-sans); font-size:16px; line-height:1.8;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+    font-feature-settings:"palt" 1;
+    position:relative; overflow:hidden;            /* ステップ型: ページ全体はスクロールさせない */
+  }
+  a{color:inherit; text-decoration:none;}
+  ::selection{background:var(--amber-glow); color:var(--ink);}
+
+  /* ============================================================
+     LIQUID BACKGROUND (liquid-final のまま)
+     ============================================================ */
+  .liquid-bg{position:fixed; inset:-12vh -12vw; z-index:-2; overflow:hidden; pointer-events:none; filter:saturate(.85);}
+  .blob{position:absolute; border-radius:50%; filter:blur(70px); opacity:.55; mix-blend-mode:screen; will-change:transform;}
+  .blob.b1{ width:46vw; height:46vw; left:-6vw; top:-4vh;
+    background:radial-gradient(circle at 40% 40%, var(--amber) 0%, transparent 66%); animation:drift1 26s ease-in-out infinite; }
+  .blob.b2{ width:42vw; height:42vw; right:-8vw; top:6vh;
+    background:radial-gradient(circle at 50% 50%, var(--cyan) 0%, transparent 66%); opacity:.42; animation:drift2 32s ease-in-out infinite; }
+  .blob.b3{ width:40vw; height:40vw; left:24vw; bottom:-14vh;
+    background:radial-gradient(circle at 50% 50%, var(--ruby) 0%, transparent 64%); opacity:.34; animation:drift3 38s ease-in-out infinite; }
+  .blob.b4{ width:30vw; height:30vw; right:14vw; bottom:-6vh;
+    background:radial-gradient(circle at 50% 50%, var(--violet) 0%, transparent 64%); opacity:.3; animation:drift1 30s ease-in-out infinite reverse; }
+  @keyframes drift1{0%,100%{transform:translate(0,0) scale(1);}33%{transform:translate(5vw,4vh) scale(1.08);}66%{transform:translate(-3vw,2vh) scale(.96);}}
+  @keyframes drift2{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(-5vw,5vh) scale(1.1);}}
+  @keyframes drift3{0%,100%{transform:translate(0,0) scale(1);}40%{transform:translate(4vw,-4vh) scale(1.06);}70%{transform:translate(-4vw,-2vh) scale(.94);}}
+
+  .liquid-veil{
+    position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background:
+      radial-gradient(120% 80% at 70% -10%, rgba(245,177,76,.05), transparent 55%),
+      radial-gradient(120% 90% at 0% 110%, rgba(92,200,214,.045), transparent 55%),
+      linear-gradient(180deg, rgba(26,26,30,.0) 60%, rgba(20,20,24,.5) 100%);
+  }
+  .filter-host{position:absolute; width:0; height:0; pointer-events:none; overflow:hidden;}
+
+  /* ============================================================
+     APP SHELL — 高さ固定。中央のステージだけが切り替わる
+     ============================================================ */
+  .app{display:flex; height:100vh; height:100dvh; position:relative; z-index:1;}
+
+  /* ---- Sidebar (章単位のまま / liquid-final) ---- */
+  .sidebar{
+    width:var(--sidebar-w); flex:0 0 var(--sidebar-w);
+    height:100vh; height:100dvh; overflow-y:auto; padding:30px 0 40px;
+    background:linear-gradient(180deg, rgba(31,31,36,.66), rgba(26,26,30,.72));
+    -webkit-backdrop-filter:blur(18px) saturate(1.5); backdrop-filter:blur(18px) saturate(1.5);
+    border-right:1px solid var(--glass-edge2);
+    box-shadow:inset -1px 0 0 rgba(255,255,255,.03);
+    scrollbar-width:thin; scrollbar-color:var(--rule-2) transparent;
+  }
+  .sidebar::-webkit-scrollbar{width:8px;}
+  .sidebar::-webkit-scrollbar-thumb{background:var(--rule-2); border-radius:4px;}
+
+  .brand{display:flex; align-items:center; gap:12px; padding:0 26px 26px; margin-bottom:6px; border-bottom:1px solid var(--glass-edge2);}
+  .brand-mark{
+    width:40px; height:40px; flex:0 0 40px; border-radius:11px; position:relative; overflow:hidden;
+    background:linear-gradient(150deg, rgba(245,177,76,.22), rgba(92,200,214,.16) 70%, rgba(154,137,216,.18));
+    border:1px solid var(--glass-edge); display:grid; place-items:center;
+    box-shadow:0 0 0 1px rgba(245,177,76,.10), 0 6px 18px -8px rgba(245,177,76,.5), inset 0 1px 0 rgba(255,255,255,.18);
+  }
+  .brand-mark::before{content:""; position:absolute; inset:0; background:radial-gradient(60% 45% at 32% 22%, rgba(255,255,255,.42), transparent 60%); pointer-events:none;}
+  .brand-mark svg{display:block; position:relative;}
+  .brand-name{font-family:var(--font-serif); font-weight:500; font-size:19px; letter-spacing:.01em; line-height:1.2;}
+  .brand-name em{font-style:italic; color:var(--amber);}
+  .brand-sub{font-size:11px; color:var(--ink-3); letter-spacing:.18em; text-transform:uppercase; margin-top:1px;}
+
+  .nav{padding:18px 14px 0;}
+  .nav-section{margin-bottom:22px;}
+  .nav-head{display:flex; align-items:baseline; gap:9px; padding:0 12px 8px; color:var(--ink-3); font-size:11px; letter-spacing:.2em; text-transform:uppercase;}
+  .nav-head .num{font-family:var(--font-serif); font-style:italic; font-size:14px; color:var(--amber-dim); letter-spacing:0; text-transform:none;}
+
+  .nav-list{list-style:none; margin:0; padding:0 0 0 2px; position:relative;}
+  .drip-rail{position:absolute; left:9px; top:0; bottom:0; width:16px; filter:url(#gooAmber); pointer-events:none; z-index:0;}
+  .drip-rail .blob-drop{
+    position:absolute; left:3px; width:10px; height:10px; border-radius:50%;
+    background:var(--amber); opacity:0; box-shadow:0 0 10px -2px var(--amber-glow);
+    transition:opacity .3s, height .3s, top .4s cubic-bezier(.5,1.35,.5,1);
+  }
+  .nav-link{
+    position:relative; z-index:1; display:flex; align-items:center; gap:11px;
+    padding:7px 12px 7px 26px; border-radius:9px; margin:1px 0;
+    color:var(--ink-2); font-size:14px; line-height:1.5; border:1px solid transparent;
+    transition:background .18s, color .18s, border-color .18s, box-shadow .18s; overflow:hidden;
+  }
+  .nav-link::before{
+    content:""; position:absolute; left:12px; top:50%; transform:translateY(-50%);
+    width:6px; height:6px; border-radius:50%; background:var(--rule-2);
+    transition:background .18s, transform .18s, box-shadow .18s; z-index:1;
+  }
+  .nav-link .idx{font-family:var(--font-mono); font-size:11.5px; color:var(--ink-3); min-width:22px; flex:0 0 22px; transition:color .18s;}
+  .nav-link:hover{background:rgba(255,255,255,.045); color:var(--ink); border-color:var(--glass-edge2);}
+  .nav-link:hover::before{background:var(--amber-dim); transform:translateY(-50%) scale(1.15);}
+  .nav-link.is-active{
+    color:var(--ink);
+    background:linear-gradient(100deg, var(--amber-glow), rgba(154,137,216,.06) 80%);
+    border-color:rgba(245,177,76,.28);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 0 22px -12px var(--amber);
+  }
+  .nav-link.is-active::after{
+    content:""; position:absolute; top:0; left:-40%; width:38%; height:100%;
+    background:linear-gradient(90deg, transparent, rgba(255,255,255,.10), transparent);
+    transform:skewX(-18deg); animation:sheen 5.5s ease-in-out infinite;
+  }
+  @keyframes sheen{0%,72%{left:-40%;}88%,100%{left:130%;}}
+  .nav-link.is-active::before{background:var(--amber); transform:translateY(-50%) scale(1.05); box-shadow:0 0 0 3px rgba(245,177,76,.12);}
+  .nav-link.is-active .idx{color:var(--amber);}
+  .nav-link.is-done .idx{color:var(--cyan);}
+  .nav-link.is-done::before{background:var(--cyan); opacity:.6;}
+
+  /* mini step-progress under the active chapter (章内のステップ数を控えめに示す) */
+  .nav-substep{
+    display:flex; align-items:center; gap:5px; padding:4px 12px 2px 28px;
+    font-family:var(--font-mono); font-size:10.5px; color:var(--ink-3); letter-spacing:.04em;
+  }
+  .nav-substep .nd{width:5px; height:5px; border-radius:50%; background:var(--rule-2); transition:background .25s;}
+  .nav-substep .nd.on{background:var(--amber); box-shadow:0 0 6px -1px var(--amber-glow);}
+  .nav-substep .nd.past{background:var(--cyan); opacity:.7;}
+
+  /* ============================================================
+     MAIN — topbar / stage(中央1ステップ) / pager の3段固定
+     ============================================================ */
+  .main{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; height:100vh; height:100dvh;}
+
+  .topbar{
+    position:relative; z-index:30; flex:0 0 auto;
+    display:flex; align-items:center; gap:18px;
+    padding:13px clamp(22px,5vw,64px);
+    background:var(--glass);
+    -webkit-backdrop-filter:blur(16px) saturate(1.7) brightness(1.04);
+    backdrop-filter:blur(16px) saturate(1.7) brightness(1.04);
+    border-bottom:1px solid var(--glass-edge2);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 10px 30px -24px #000;
+  }
+  .hamburger{
+    display:none; width:40px; height:40px; flex:0 0 40px;
+    background:var(--glass-2); border:1px solid var(--glass-edge); border-radius:10px;
+    -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+    color:var(--ink-2); cursor:pointer; align-items:center; justify-content:center;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.08);
+  }
+  .hamburger:hover{color:var(--amber);}
+  .crumbs{font-size:12.5px; color:var(--ink-3); letter-spacing:.04em; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .crumbs b{color:var(--ink-2); font-weight:500;}
+  .topbar-spacer{flex:1 1 auto;}
+
+  /* ---- mode toggle (liquid-final goo メタボール) ---- */
+  .mode-toggle{
+    display:inline-flex; align-items:center; gap:0; position:relative; flex:0 0 auto;
+    padding:4px; border-radius:14px; background:var(--glass-2);
+    -webkit-backdrop-filter:blur(10px) saturate(1.4); backdrop-filter:blur(10px) saturate(1.4);
+    border:1px solid var(--glass-edge);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.10), inset 0 -1px 0 rgba(0,0,0,.25);
+  }
+  .mt-liquid{position:absolute; inset:4px; z-index:0; filter:url(#gooAmber); pointer-events:none;}
+  .mt-liquid .thumb{
+    position:absolute; top:0; left:0; bottom:0; width:50%; border-radius:11px;
+    background:linear-gradient(160deg, rgba(245,177,76,.92), var(--amber-deep));
+    transition:transform .42s cubic-bezier(.5,1.35,.4,1), background .3s;
+  }
+  .mt-liquid .thumb::before{content:""; position:absolute; inset:0; border-radius:inherit; background:radial-gradient(70% 55% at 30% 22%, rgba(255,255,255,.40), transparent 62%);}
+  .mt-liquid .tail{
+    position:absolute; top:50%; left:8px; transform:translateY(-50%) scale(0);
+    width:17px; height:17px; border-radius:50%; background:var(--amber-dim); opacity:0;
+    transition:transform .42s cubic-bezier(.5,1.35,.4,1), left .42s cubic-bezier(.5,1.35,.4,1), opacity .42s, background .3s;
+  }
+  .mode-toggle[data-mode="terminal"] .mt-liquid .thumb{transform:translateX(0);}
+  .mode-toggle[data-mode="desktop"]  .mt-liquid .thumb{transform:translateX(100%); background:linear-gradient(160deg, rgba(92,200,214,.9), var(--cyan-deep));}
+  .mode-toggle[data-mode="desktop"]  .mt-liquid .tail{background:var(--cyan-deep);}
+  .mode-toggle.dripping .mt-liquid .tail{opacity:1;}
+  .mode-btn{
+    position:relative; z-index:1; appearance:none; background:none; border:0; cursor:pointer;
+    display:inline-flex; align-items:center; gap:7px; padding:7px 15px; min-width:118px; justify-content:center;
+    font-family:var(--font-sans); font-size:13px; font-weight:500; color:var(--ink-3); transition:color .25s; white-space:nowrap;
+  }
+  .mode-btn svg{flex:0 0 auto;}
+  .mode-toggle[data-mode="terminal"] .mode-btn[data-for="terminal"]{color:#241a09;}
+  .mode-toggle[data-mode="desktop"]  .mode-btn[data-for="desktop"]{color:#06262b;}
+  .mode-toggle[data-mode="terminal"] .mode-btn[data-for="desktop"]:hover{color:var(--cyan);}
+  .mode-toggle[data-mode="desktop"]  .mode-btn[data-for="terminal"]:hover{color:var(--amber);}
+  .mode-btn .lbl-sm{display:none;}
+
+  /* ============================================================
+     STAGE — 1画面=1ステップ。スクロールせず中央に収める
+     ============================================================ */
+  .stage{
+    flex:1 1 auto; position:relative; min-height:0;
+    display:grid;                                  /* 子(=各step)を重ねて切替 */
+  }
+  .step{
+    grid-area:1 / 1; min-height:0; overflow:hidden;   /* 既定はスクロール不可=1画面に収める */
+    display:flex; align-items:center; justify-content:center;
+    padding:clamp(20px,4.5vh,52px) clamp(22px,5vw,48px);
+    opacity:0; visibility:hidden; pointer-events:none;
+    transform:translateX(var(--enter, 28px));
+    transition:opacity .42s ease, transform .5s cubic-bezier(.4,.02,.2,1), visibility .42s;
+  }
+  .step.is-current{opacity:1; visibility:visible; pointer-events:auto; transform:translateX(0); transition-delay:.04s;}
+  .step.leaving{opacity:0; visibility:visible; transform:translateX(var(--leave, -28px)); pointer-events:none;}
+  /* 表・コードが大きいステップだけ、そのカード内に限り控えめスクロールを許可 */
+  .step.scrollable{overflow-y:auto; align-items:flex-start; scrollbar-width:thin; scrollbar-color:var(--rule-2) transparent;}
+  .step.scrollable::-webkit-scrollbar{width:8px;}
+  .step.scrollable::-webkit-scrollbar-thumb{background:var(--rule-2); border-radius:4px;}
+
+  .step-inner{width:100%; max-width:var(--maxstep); margin:auto;}
+
+  .eyebrow{display:flex; align-items:center; gap:14px; margin-bottom:18px; color:var(--ink-3); font-size:12px; letter-spacing:.16em; text-transform:uppercase;}
+  .eyebrow .chap-no{font-family:var(--font-serif); font-style:italic; font-weight:500; font-size:15px; color:var(--amber); letter-spacing:.02em; text-transform:none;}
+  .eyebrow .ln{height:1px; flex:1 1 auto; background:linear-gradient(90deg, var(--rule), transparent);}
+  .eyebrow .sec-tag{font-family:var(--font-mono); font-size:11px; color:var(--cyan); letter-spacing:.08em; text-transform:none;}
+
+  .step h1{
+    font-family:var(--font-serif); font-weight:500;
+    font-size:clamp(28px,4.2vw,44px); line-height:1.14; letter-spacing:-.012em;
+    margin:0 0 16px; color:var(--ink); font-optical-sizing:auto;
+  }
+  .step h1 .accent{
+    font-style:italic;
+    background:linear-gradient(96deg, var(--amber) 0%, #e9c06e 42%, var(--cyan) 78%, var(--violet) 100%);
+    background-size:220% 100%; -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent; color:transparent; animation:flow 11s ease-in-out infinite;
+  }
+  @keyframes flow{0%,100%{background-position:0% 50%;}50%{background-position:100% 50%;}}
+  .step h2{font-family:var(--font-serif); font-weight:500; font-size:clamp(24px,3vw,32px); line-height:1.22; letter-spacing:-.008em; margin:0 0 16px; color:var(--ink);}
+  .step h2 .accent{font-style:italic; color:var(--amber);}
+  .step .lede{font-size:clamp(16px,2vw,18.5px); line-height:1.72; color:var(--ink-2); margin:0 0 14px; max-width:62ch;}
+  .step p{margin:0 0 16px; color:var(--ink); max-width:64ch; font-size:clamp(14.5px,1.6vw,16px); line-height:1.78;}
+  .step p:last-child{margin-bottom:0;}
+  .step p.muted{color:var(--ink-2);}
+  .step strong{font-weight:700; color:var(--ink);}
+  .step em{font-style:italic;}
+  code.inline{
+    font-family:var(--font-mono); font-size:.86em; color:var(--amber);
+    background:rgba(245,177,76,.08); border:1px solid rgba(245,177,76,.18); border-radius:5px;
+    padding:1px 6px; white-space:nowrap;
+  }
+
+  /* ---- tooltip / term (liquid-final) ---- */
+  .term{position:relative; color:var(--ink); cursor:help; border-bottom:1.5px dotted var(--cyan); padding-bottom:1px; transition:color .15s;}
+  .term:hover, .term.open{color:var(--cyan);}
+  .term .pop{
+    position:absolute; left:50%; bottom:calc(100% + 13px); transform:translateX(-50%) translateY(8px) scale(.97);
+    width:308px; max-width:78vw; z-index:60; border-radius:14px; padding:15px 17px; text-align:left;
+    background:var(--glass-2);
+    -webkit-backdrop-filter:blur(20px) saturate(1.7) brightness(1.06); backdrop-filter:blur(20px) saturate(1.7) brightness(1.06);
+    border:1px solid var(--glass-edge);
+    box-shadow:0 22px 50px -18px #000, 0 0 0 1px rgba(92,200,214,.10), 0 0 40px -16px var(--cyan-glow), inset 0 1px 0 rgba(255,255,255,.14);
+    opacity:0; visibility:hidden; pointer-events:none;
+    transition:opacity .2s, transform .28s cubic-bezier(.4,1.3,.4,1), visibility .2s;
+  }
+  .term .pop::before{content:""; position:absolute; left:14px; right:14px; top:6px; height:34%; border-radius:12px; background:linear-gradient(180deg, rgba(255,255,255,.10), transparent); pointer-events:none;}
+  .term:hover .pop, .term.open .pop{opacity:1; visibility:visible; transform:translateX(-50%) translateY(0) scale(1); pointer-events:auto;}
+  .term .pop::after{
+    content:""; position:absolute; top:100%; left:50%; transform:translateX(-50%) rotate(45deg);
+    width:12px; height:12px; margin-top:-6px; background:var(--glass-2);
+    -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);
+    border-right:1px solid var(--glass-edge); border-bottom:1px solid var(--glass-edge);
+  }
+  .pop-term{font-family:var(--font-mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--cyan); margin-bottom:6px; display:flex; align-items:center; gap:7px; position:relative;}
+  .pop-term::before{content:""; width:7px; height:7px; border-radius:50% 50% 50% 0; transform:rotate(45deg); background:radial-gradient(circle at 35% 30%, var(--cyan), rgba(92,200,214,.3)); box-shadow:0 0 6px -1px var(--cyan-glow);}
+  .pop-def{display:block; font-size:13.5px; line-height:1.65; color:var(--ink-2); margin:0; position:relative;}
+  .pop-def b{color:var(--ink); font-weight:500;}
+
+  /* ---- code block (liquid-final, ステップ向けにコンパクト) ---- */
+  .codeblock{
+    margin:18px 0 0; border-radius:14px; overflow:hidden; position:relative;
+    background:linear-gradient(180deg, rgba(35,35,41,.78), rgba(28,28,34,.84));
+    -webkit-backdrop-filter:blur(8px) saturate(1.3); backdrop-filter:blur(8px) saturate(1.3);
+    border:1px solid var(--glass-edge);
+    box-shadow:0 1px 0 rgba(255,255,255,.04) inset, 0 24px 50px -32px #000, 0 0 50px -30px var(--amber-glow);
+  }
+  .code-head{display:flex; align-items:center; gap:10px; padding:9px 14px; border-bottom:1px solid var(--glass-edge2); background:linear-gradient(180deg,rgba(255,255,255,.035),transparent);}
+  .dots{display:flex; gap:6px; margin-right:4px;}
+  .dots i{width:10px; height:10px; border-radius:50%; display:block; box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);}
+  .dots i:nth-child(1){background:#3f3340;} .dots i:nth-child(2){background:#3a3f42;} .dots i:nth-child(3){background:#3a3a42;}
+  .code-title{font-family:var(--font-mono); font-size:12px; color:var(--ink-3); letter-spacing:.02em; display:inline-flex; align-items:center; gap:7px;}
+  .code-title .badge{font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--amber); border:1px solid rgba(245,177,76,.25); border-radius:4px; padding:1px 6px; background:rgba(245,177,76,.06);}
+  .code-copy{margin-left:auto; appearance:none; background:rgba(255,255,255,.03); border:1px solid var(--glass-edge2); color:var(--ink-3); border-radius:7px; padding:4px 9px; cursor:pointer; font-family:var(--font-mono); font-size:11px; display:inline-flex; align-items:center; gap:6px; transition:color .15s, border-color .15s, background .15s;}
+  .code-copy:hover{color:var(--amber); border-color:var(--amber-dim); background:rgba(245,177,76,.06);}
+  .code-body{margin:0; padding:15px 18px; overflow-x:auto; font-family:var(--font-mono); font-size:13px; line-height:1.7; color:var(--ink);}
+  .code-body .line{display:block; white-space:pre;}
+  .code-body .prompt{color:var(--amber); user-select:none;}
+  .code-body .prompt.cy{color:var(--cyan);}
+  .sx-key{color:var(--sx-key);} .sx-str{color:var(--sx-str);} .sx-flag{color:var(--sx-flag);}
+  .sx-com{color:var(--sx-com); font-style:italic;} .sx-fn{color:var(--sx-fn);} .sx-dim{color:var(--ink-3);}
+  .caret{display:inline-block; width:8px; height:15px; background:var(--amber); vertical-align:-3px; margin-left:2px; animation:blink 1.15s steps(1) infinite; border-radius:1px;}
+  @keyframes blink{50%{opacity:0;}}
+
+  /* ---- mode-conditional content ---- */
+  .mode-only{display:none;}
+  body[data-mode="terminal"] .mode-only.for-terminal{display:block;}
+  body[data-mode="desktop"]  .mode-only.for-desktop{display:block;}
+  span.mode-only{display:none;}
+  body[data-mode="terminal"] span.mode-only.for-terminal{display:inline;}
+  body[data-mode="desktop"]  span.mode-only.for-desktop{display:inline;}
+  /* code lines are block-level: show only the active mode's lines */
+  .code-body .line.mode-only{display:none;}
+  body[data-mode="terminal"] .code-body .line.mode-only.for-terminal{display:block;}
+  body[data-mode="desktop"]  .code-body .line.mode-only.for-desktop{display:block;}
+
+  .modecard{border-radius:0; border-left:2px solid var(--amber); background:linear-gradient(90deg, var(--amber-glow), transparent 72%); padding:11px 16px; margin:0 0 16px;}
+  body[data-mode="desktop"] .modecard{border-left-color:var(--cyan); background:linear-gradient(90deg, var(--cyan-glow), transparent 72%);}
+  .modecard .mc-head{font-family:var(--font-mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--amber); margin-bottom:4px; display:flex; align-items:center; gap:8px;}
+  body[data-mode="desktop"] .modecard .mc-head{color:var(--cyan);}
+  .modecard p{margin:0; font-size:14px; color:var(--ink-2); line-height:1.6;}
+
+  /* ---- callout (liquid-final) ---- */
+  .callout{display:flex; gap:13px; margin:18px 0 0; position:relative; overflow:hidden; border-radius:13px; padding:14px 16px; background:var(--glass); -webkit-backdrop-filter:blur(12px) saturate(1.4); backdrop-filter:blur(12px) saturate(1.4); border:1px solid var(--glass-edge); box-shadow:inset 0 1px 0 rgba(255,255,255,.07), 0 16px 36px -28px #000;}
+  .callout::before{content:""; position:absolute; left:0; right:0; top:0; height:42%; background:linear-gradient(180deg, rgba(255,255,255,.05), transparent); pointer-events:none;}
+  .callout.warn{border-color:rgba(211,107,126,.4); box-shadow:inset 0 1px 0 rgba(255,255,255,.07), 0 0 40px -22px var(--ruby-glow);}
+  .callout .ic{flex:0 0 22px; color:var(--cyan); margin-top:2px; position:relative;}
+  .callout.warn .ic{color:var(--ruby);}
+  .callout .ct{font-size:13.5px; line-height:1.65; color:var(--ink-2); margin:0; position:relative;}
+  .callout .ct b{color:var(--ink); font-weight:500;}
+
+  /* ---- permission table (§2 のステップ) ---- */
+  .ptable{width:100%; border-collapse:collapse; margin:6px 0 0; font-size:13.5px;}
+  .ptable th, .ptable td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--rule); vertical-align:top; line-height:1.55;}
+  .ptable thead th{font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); border-bottom:1px solid var(--rule-2);}
+  .ptable tbody tr:last-child td{border-bottom:0;}
+  .ptable tbody tr{transition:background .15s;}
+  .ptable tbody tr:hover{background:rgba(255,255,255,.025);}
+  .ptable .mode-name{font-family:var(--font-mono); color:var(--amber); white-space:nowrap; font-size:12.5px;}
+  .ptable tr.danger .mode-name{color:var(--ruby);}
+  .ptable td.muted{color:var(--ink-2);}
+
+  /* ============================================================
+     PAGER + PROGRESS (章内のステップ送り)
+     液面メニスカス + ドット + N/N。liquid-final の質感を踏襲
+     ============================================================ */
+  .pager{
+    flex:0 0 auto; position:relative; z-index:20;
+    display:flex; align-items:center; gap:clamp(12px,3vw,26px);
+    padding:14px clamp(22px,5vw,48px);
+    background:var(--glass);
+    -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);
+    border-top:1px solid var(--glass-edge2);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 -10px 30px -26px #000;
+  }
+  .pg-btn{
+    appearance:none; cursor:pointer; flex:0 0 auto;
+    display:inline-flex; align-items:center; gap:9px;
+    font-family:var(--font-sans); font-size:13.5px; font-weight:500; color:var(--ink-2);
+    background:linear-gradient(160deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+    -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+    border:1px solid var(--glass-edge); border-radius:11px; padding:9px 16px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.12);
+    transition:background .18s, box-shadow .18s, transform .12s, color .18s, border-color .18s, opacity .18s;
+  }
+  .pg-btn:hover{color:var(--ink); border-color:rgba(245,177,76,.35); box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 0 22px -10px var(--amber);}
+  .pg-btn:active{transform:translateY(1px);}
+  .pg-btn:disabled{opacity:.32; cursor:not-allowed; box-shadow:none; border-color:var(--glass-edge2);}
+  .pg-btn.next{margin-left:auto; color:var(--ink); border-color:rgba(245,177,76,.4); background:linear-gradient(160deg, rgba(255,255,255,.10), rgba(245,177,76,.06));}
+  .pg-btn.next:hover{background:rgba(245,177,76,.16);}
+  /* 章末: 次の章へ(シアン寄り) */
+  .pg-btn.next.is-chapter-end{border-color:rgba(92,200,214,.45); background:linear-gradient(160deg, rgba(255,255,255,.10), rgba(92,200,214,.08)); color:var(--cyan);}
+  .pg-btn.next.is-chapter-end:hover{background:rgba(92,200,214,.16);}
+  .pg-btn .pg-sub{font-family:var(--font-mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); display:block; line-height:1;}
+  .pg-btn .pg-main{display:block; line-height:1.25; text-align:left;}
+  .pg-btn.next .pg-sub,.pg-btn.next .pg-main{text-align:right;}
+
+  /* center cluster: meniscus bar + dots + N/N */
+  .pg-center{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; align-items:center; gap:8px;}
+  .pg-meta{display:flex; align-items:center; gap:12px; font-family:var(--font-mono); font-size:11.5px; color:var(--ink-3); letter-spacing:.05em;}
+  .pg-meta .cur{color:var(--amber); font-weight:500;}
+  .pg-dots{display:flex; align-items:center; gap:9px;}
+  .pg-dots button{
+    appearance:none; border:0; cursor:pointer; padding:0;
+    width:9px; height:9px; border-radius:50%; background:var(--rule-2);
+    transition:background .25s, transform .25s, box-shadow .25s; position:relative;
+  }
+  .pg-dots button:hover{transform:scale(1.25); background:var(--amber-dim);}
+  .pg-dots button.past{background:var(--cyan); opacity:.7;}
+  .pg-dots button.on{background:var(--amber); transform:scale(1.35); box-shadow:0 0 0 4px rgba(245,177,76,.12), 0 0 10px -1px var(--amber-glow);}
+
+  /* thin liquid meniscus bar (進捗の液面) */
+  .pg-bar{
+    width:min(360px, 56vw); height:7px; border-radius:6px; position:relative; overflow:hidden;
+    background:linear-gradient(180deg, rgba(20,20,24,.6), rgba(35,35,41,.5));
+    border:1px solid var(--glass-edge2);
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.4);
+  }
+  .pg-bar .fill{
+    position:absolute; top:0; bottom:0; left:0; width:20%;
+    background:linear-gradient(90deg, var(--amber-dim), var(--amber) 70%, #ffd089);
+    box-shadow:0 0 18px -4px var(--amber-glow), inset 0 1px 0 rgba(255,255,255,.3);
+    border-radius:6px; transition:width .55s cubic-bezier(.45,.05,.2,1);
+  }
+  .pg-bar .fill .meniscus{position:absolute; top:-1px; right:-1px; bottom:-1px; width:8px; border-right:2px solid rgba(255,247,232,.85); border-radius:50%; background:linear-gradient(90deg, transparent, rgba(255,247,232,.5));}
+
+  /* mobile pager hint (swipe) */
+  .swipe-hint{display:none;}
+
+  /* scrim for mobile drawer */
+  .scrim{position:fixed; inset:0; background:rgba(8,8,10,.55); -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px); opacity:0; visibility:hidden; transition:opacity .24s; z-index:50;}
+  .scrim.show{opacity:1; visibility:visible;}
+
+  /* keyboard hint chip (desktop) */
+  .kbd-hint{
+    position:fixed; right:18px; bottom:90px; z-index:25;
+    display:inline-flex; align-items:center; gap:8px;
+    font-size:11.5px; color:var(--ink-3);
+    background:var(--glass-2); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+    border:1px solid var(--glass-edge2); border-radius:9px; padding:6px 11px;
+    box-shadow:0 10px 26px -18px #000; opacity:.9; transition:opacity .3s;
+  }
+  .kbd-hint kbd{font-family:var(--font-mono); font-size:11px; color:var(--ink-2); background:rgba(255,255,255,.05); border:1px solid var(--rule-2); border-bottom-width:2px; border-radius:5px; padding:1px 6px;}
+
+  /* ============================================================
+     RESPONSIVE
+     ============================================================ */
+  @media (max-width:980px){
+    .sidebar{position:fixed; top:0; left:0; z-index:55; transform:translateX(-100%); transition:transform .3s cubic-bezier(.4,.02,.2,1); box-shadow:0 0 60px -10px #000;}
+    .sidebar.open{transform:translateX(0);}
+    .hamburger{display:inline-flex;}
+    .main{width:100%;}
+    .kbd-hint{display:none;}
+  }
+  @media (max-width:640px){
+    body{font-size:15.5px;}
+    .mode-btn{min-width:46px; padding:8px 11px;}
+    .mode-btn .lbl-lg{display:none;}
+    .mode-btn .lbl-sm{display:inline;}
+    .crumbs{display:none;}
+    .term .pop{width:240px;}
+    .blob{filter:blur(54px);}
+    /* mobile: 縦1カラム + 下部に「次へ」主体のpager */
+    .step{padding:18px 18px 8px;}
+    .pager{flex-wrap:wrap; gap:10px 12px; padding:11px 16px calc(11px + env(safe-area-inset-bottom));}
+    .pg-center{order:-1; flex:1 1 100%;}
+    .pg-btn{flex:1 1 0; justify-content:center;}
+    .pg-btn .pg-sub{display:none;}
+    .pg-bar{width:100%;}
+    .swipe-hint{display:flex; align-items:center; gap:6px; justify-content:center; flex:1 1 100%; order:99; font-size:10.5px; color:var(--ink-3); font-family:var(--font-mono); letter-spacing:.04em; margin-top:-2px;}
+  }
+  /* short viewport: 表ステップなどが溢れたら、そのカードのみスクロール可に */
+  @media (max-height:620px){
+    .step{align-items:flex-start; overflow-y:auto;}
+  }
+
+  /* ============================================================
+     prefers-reduced-motion
+     ============================================================ */
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important;}
+    .blob{opacity:.32;}
+    :root{--refract:none;}
+    .step h1 .accent{-webkit-text-fill-color:initial; color:var(--amber); background:none;}
+    /* 横スライドは無効化し、フェードのみ(transformを使わない) */
+    .step{transition:opacity .25s ease, visibility .25s; transform:none !important;}
+    .step.leaving{transform:none !important;}
+    .mt-liquid{filter:none;}
+    .mt-liquid .tail{display:none;}
+    .drip-rail{filter:none;}
+    .pg-bar .fill{transition:none;}
+  }
+</style>
+</head>
+<body data-mode="terminal">
+
+  <!-- ===== liquid background ===== -->
+  <div class="liquid-bg" aria-hidden="true">
+    <span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span><span class="blob b4"></span>
+  </div>
+  <div class="liquid-veil" aria-hidden="true"></div>
+
+  <!-- ===== SVG filters: 屈折 + goo ===== -->
+  <svg class="filter-host" aria-hidden="true" focusable="false">
+    <defs>
+      <filter id="liquidGlass" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.012 0.018" numOctaves="2" seed="7" result="noise">
+          <animate attributeName="baseFrequency" dur="22s" values="0.012 0.018; 0.016 0.012; 0.012 0.018" repeatCount="indefinite"/>
+        </feTurbulence>
+        <feGaussianBlur in="noise" stdDeviation="1.1" result="softNoise"/>
+        <feDisplacementMap in="SourceGraphic" in2="softNoise" scale="26" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+      <filter id="gooAmber">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur"/>
+        <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -9" result="goo"/>
+        <feBlend in="SourceGraphic" in2="goo"/>
+      </filter>
+    </defs>
+  </svg>
+
+  <div class="scrim" id="scrim"></div>
+
+  <div class="app">
+
+    <!-- ============ SIDEBAR (章単位のまま) ============ -->
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M5 8l4 4-4 4" stroke="#f5b14c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M13 16h6" stroke="#5cc8d6" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span>
+          <span class="brand-name">Claude Code <em>道場</em></span>
+          <span class="brand-sub">Dojo · 実践チュートリアル</span>
+        </span>
+      </div>
+
+      <nav class="nav" aria-label="章ナビゲーション">
+        <div class="nav-section">
+          <div class="nav-head"><span class="num">01</span><span>初級</span></div>
+          <ul class="nav-list">
+            <span class="drip-rail" aria-hidden="true"><i class="blob-drop"></i></span>
+            <li><a class="nav-link is-done" href="#"><span class="idx">1.1</span><span>Claude Code とは</span></a></li>
+            <li><a class="nav-link is-done" href="#"><span class="idx">1.2</span><span>インストールと初期設定</span></a></li>
+            <li>
+              <a class="nav-link is-active" href="#" aria-current="page"><span class="idx">1.3</span><span>セッションと権限モード</span></a>
+              <!-- 章内ステップ位置(サイドバーは章単位、中はステップ送り) -->
+              <div class="nav-substep" id="navSubstep" aria-hidden="true">
+                <span class="nd on"></span><span class="nd"></span><span class="nd"></span><span class="nd"></span><span class="nd"></span>
+                <span style="margin-left:4px;" id="navSubLbl">1 / 5</span>
+              </div>
+            </li>
+            <li><a class="nav-link" href="#"><span class="idx">1.4</span><span>CLAUDE.md を書く</span></a></li>
+          </ul>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-head"><span class="num">02</span><span>中級</span></div>
+          <ul class="nav-list">
+            <span class="drip-rail" aria-hidden="true"><i class="blob-drop"></i></span>
+            <li><a class="nav-link" href="#"><span class="idx">2.1</span><span>プロジェクト文脈の渡し方</span></a></li>
+            <li><a class="nav-link" href="#"><span class="idx">2.2</span><span>差分レビューの作法</span></a></li>
+            <li><a class="nav-link" href="#"><span class="idx">2.3</span><span>巻き戻しと安全装置</span></a></li>
+          </ul>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-head"><span class="num">03</span><span>上級</span></div>
+          <ul class="nav-list">
+            <span class="drip-rail" aria-hidden="true"><i class="blob-drop"></i></span>
+            <li><a class="nav-link" href="#"><span class="idx">3.1</span><span>カスタムスラッシュコマンド</span></a></li>
+            <li><a class="nav-link" href="#"><span class="idx">3.2</span><span>MCP サーバー連携</span></a></li>
+            <li><a class="nav-link" href="#"><span class="idx">3.3</span><span>フックで自動化</span></a></li>
+          </ul>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-head"><span class="num">04</span><span>プロ</span></div>
+          <ul class="nav-list">
+            <span class="drip-rail" aria-hidden="true"><i class="blob-drop"></i></span>
+            <li><a class="nav-link" href="#"><span class="idx">4.1</span><span>サブエージェント設計</span></a></li>
+            <li><a class="nav-link" href="#"><span class="idx">4.2</span><span>CI への組み込み</span></a></li>
+            <li><a class="nav-link" href="#"><span class="idx">4.3</span><span>大規模リポジトリ運用</span></a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- ============ MAIN ============ -->
+    <div class="main">
+
+      <!-- topbar -->
+      <header class="topbar">
+        <button class="hamburger" id="hamburger" aria-label="メニューを開く">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+        <div class="crumbs"><b>初級</b> &nbsp;/&nbsp; 1.3 &nbsp;/&nbsp; セッションと権限モード</div>
+        <div class="topbar-spacer"></div>
+
+        <div class="mode-toggle" id="modeToggle" data-mode="terminal" role="tablist" aria-label="表示モード切替">
+          <span class="mt-liquid" aria-hidden="true"><span class="thumb"></span><span class="tail"></span></span>
+          <button class="mode-btn" data-for="terminal" role="tab" aria-selected="true">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M7 9l3 3-3 3M13 15h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="lbl-lg">ターミナル</span><span class="lbl-sm">CLI</span>
+          </button>
+          <button class="mode-btn" data-for="desktop" role="tab" aria-selected="false">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="12" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M9 20h6M12 16v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            <span class="lbl-lg">デスクトップ</span><span class="lbl-sm">App</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- ============ STAGE: 1画面=1ステップ ============ -->
+      <main class="stage" id="stage" aria-live="polite">
+
+        <!-- ===== STEP 1 / §導入: 権限モードとは ===== -->
+        <section class="step" data-step="1" aria-label="ステップ 1">
+          <div class="step-inner">
+            <div class="eyebrow">
+              <span class="chap-no">第 1.3 章</span>
+              <span class="ln"></span>
+              <span class="sec-tag">intro</span>
+            </div>
+            <h1>「自動の度合い」を握る<br><span class="accent">権限モード</span></h1>
+            <p class="lede">
+              ファイルを書き換えられるのは怖いけれど、毎回ぜんぶ確認するのも面倒——その塩梅を握るのが
+              <span class="term" tabindex="0">権限モード<span class="pop" role="tooltip"><span class="pop-term">Permission mode</span><span class="pop-def">編集やコマンド実行を、<b>どこまで人に確認するか</b>を決める設定。モデルの賢さは変えず「実行前に止めるか/止めないか」だけを切り替えます。</span></span></span>。アクセルの踏み込みを決めるダイヤルだと思ってください。
+            </p>
+            <p class="muted">
+              慎重にいきたいときは確認多めに、慣れてきたら自動多めに。この章では <strong>4 つのモード</strong>と切り替え方、そして会話のひとまとまりである
+              <span class="term" tabindex="0">セッション<span class="pop" role="tooltip"><span class="pop-term">Session</span><span class="pop-def">「会話履歴 + 対象フォルダー + 加えた変更」を 1 単位にしたもの。閉じても残り、あとから再開できます。</span></span></span>の再開を学びます。これが分かれば、安心して仕事を任せられます。
+            </p>
+            <div class="callout">
+              <span class="ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M12 8h.01M11 12h1v4h1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+              <p class="ct"><b>これは「賢さ」ではなく「自動の度合い」の設定です。</b> どのモードでも能力は同じ。変わるのは、実行前にあなたへ確認するかどうかだけ。次のページで 4 種類を見ていきます。</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== STEP 2 / §1: 4つのモード(表が主役 → このステップだけ控えめスクロール可) ===== -->
+        <section class="step scrollable" data-step="2" aria-label="ステップ 2">
+          <div class="step-inner">
+            <div class="eyebrow">
+              <span class="chap-no">§1</span><span class="ln"></span><span class="sec-tag">4 modes</span>
+            </div>
+            <h2>4 つの<span class="accent">モード</span>、ひと目で</h2>
+            <p class="muted" style="margin-bottom:8px;">左ほど安全(確認多め)、下にいくほど自動。<strong>まずは <code class="inline">default</code> から</strong>。<code class="inline">bypassPermissions</code> は原則使いません。</p>
+            <table class="ptable">
+              <thead><tr><th>モード</th><th>何が起きるか</th><th>いつ使うか</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td class="mode-name">default</td>
+                  <td>読み取りは許可。編集・実行は <strong>その都度確認</strong></td>
+                  <td class="muted">標準。まずはこれ</td>
+                </tr>
+                <tr>
+                  <td class="mode-name">plan</td>
+                  <td><strong>編集も実行もしない</strong>。計画だけ立てて見せる</td>
+                  <td class="muted">大きめの作業前に方針レビュー</td>
+                </tr>
+                <tr>
+                  <td class="mode-name">acceptEdits</td>
+                  <td>編集の確認を <strong>スキップ</strong>。実行は確認</td>
+                  <td class="muted">方針が固まり速く進めたい</td>
+                </tr>
+                <tr class="danger">
+                  <td class="mode-name">bypassPermissions</td>
+                  <td>確認なしの <strong>全権委任</strong>(危険)</td>
+                  <td class="muted">原則使わない。隔離環境のみ</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="callout">
+              <span class="ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M12 8h.01M11 12h1v4h1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+              <p class="ct"><b>安全側の <code class="inline">default</code> と <code class="inline">plan</code> で十分に戦えます。</b> <code class="inline">acceptEdits</code> は「変更を後で必ず差分で見る」習慣とセットで。</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== STEP 3 / §2: モードを切り替える(モード差を出し分け + code) ===== -->
+        <section class="step" data-step="3" aria-label="ステップ 3">
+          <div class="step-inner">
+            <div class="eyebrow">
+              <span class="chap-no">§2</span><span class="ln"></span><span class="sec-tag">switch</span>
+            </div>
+            <h2>モードを<span class="accent">切り替える</span></h2>
+
+            <div class="modecard">
+              <div class="mc-head">
+                <span>いまの表示</span> ·
+                <span class="mode-only for-terminal">ターミナル版</span>
+                <span class="mode-only for-desktop">デスクトップ版</span>
+              </div>
+              <p class="mode-only for-terminal">対話中に <code class="inline">Shift+Tab</code> を押すたびモードが <strong>巡回</strong>。現在モードは画面下部の <span class="term" tabindex="0">ステータスライン<span class="pop" role="tooltip"><span class="pop-term">Status line</span><span class="pop-def">ターミナル下部に出る現在の状態表示。モード・モデル・作業フォルダーがひと目で分かります。</span></span></span> に出ます。</p>
+              <p class="mode-only for-desktop">画面の <strong>トグルやメニュー</strong> から選びます。<code class="inline">Shift+Tab</code> の巡回も使えますが、UI スイッチで「計画だけ」「編集を自動承認」を明示的に選べます。</p>
+            </div>
+
+            <div class="codeblock">
+              <div class="code-head">
+                <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                <span class="code-title">
+                  <span class="mode-only for-terminal">zsh — claude</span>
+                  <span class="mode-only for-desktop">モード表示</span>
+                  <span class="badge"><span class="mode-only for-terminal">CLI</span><span class="mode-only for-desktop">App</span></span>
+                </span>
+                <button class="code-copy" type="button" onclick="cc(this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M5 15V5a2 2 0 012-2h8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span>copy</span></button>
+              </div>
+              <pre class="code-body"><span class="line mode-only for-terminal"><span class="sx-com"># Shift+Tab を押すたびモードが巡回</span></span><span class="line mode-only for-terminal"><span class="sx-dim">  ⎿ </span><span class="sx-fn">mode</span> <span class="sx-flag">plan</span> <span class="sx-dim">（解析のみ・編集も実行もしない）</span></span><span class="line mode-only for-terminal"> </span><span class="line mode-only for-terminal"><span class="sx-dim">  status: </span><span class="sx-key">plan</span> <span class="sx-dim">·</span> <span class="sx-key">Sonnet</span> <span class="sx-dim">·</span> <span class="sx-flag">~/projects/my-app</span></span><span class="line mode-only for-terminal"><span class="prompt cy">&gt;</span> <span class="caret" aria-hidden="true"></span></span><span class="line mode-only for-desktop"><span class="sx-com"># 画面上のトグル / メニューでモードを選ぶ</span></span><span class="line mode-only for-desktop"><span class="prompt cy">モード</span>  <span class="sx-key">プラン</span> <span class="sx-dim">（解析のみ・編集も実行もしない）</span></span><span class="line mode-only for-desktop"> </span><span class="line mode-only for-desktop"><span class="sx-dim">  現在: </span><span class="sx-key">プラン</span> <span class="sx-dim">·</span> <span class="sx-key">Sonnet</span> <span class="sx-dim">·</span> <span class="sx-flag">my-app</span></span></pre>
+            </div>
+
+            <div class="callout">
+              <span class="ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M12 8h.01M11 12h1v4h1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+              <p class="ct"><b>迷ったら、まず <code class="inline">plan</code> に。</b> 計画を読んで納得してから <code class="inline">default</code> / <code class="inline">acceptEdits</code> で実行——この往復が基本形です。</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== STEP 4 / §3: セッション(モード差 + code) ===== -->
+        <section class="step" data-step="4" aria-label="ステップ 4">
+          <div class="step-inner">
+            <div class="eyebrow">
+              <span class="chap-no">§3</span><span class="ln"></span><span class="sec-tag">session</span>
+            </div>
+            <h2>続きから<span class="accent">再開</span>する</h2>
+            <p class="muted">
+              <span class="term" tabindex="0">セッション<span class="pop" role="tooltip"><span class="pop-term">Session</span><span class="pop-def">「会話履歴 + 対象フォルダー + 加えた変更」を 1 単位として持つ作業のまとまり。</span></span></span> は、何を話し・どこで・どこを変えたかをセットで記録します。うれしいのは <strong>あとから再開</strong> できること。「昨日の続き」を説明し直さずに戻れます。
+            </p>
+
+            <div class="codeblock">
+              <div class="code-head">
+                <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                <span class="code-title">
+                  <span class="mode-only for-terminal">zsh — claude</span>
+                  <span class="mode-only for-desktop">セッション一覧</span>
+                  <span class="badge"><span class="mode-only for-terminal">CLI</span><span class="mode-only for-desktop">App</span></span>
+                </span>
+                <button class="code-copy" type="button" onclick="cc(this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M5 15V5a2 2 0 012-2h8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span>copy</span></button>
+              </div>
+              <pre class="code-body"><span class="line mode-only for-terminal"><span class="sx-com"># 直前のセッションをそのまま再開</span></span><span class="line mode-only for-terminal"><span class="prompt">$</span> claude <span class="sx-flag">-c</span></span><span class="line mode-only for-terminal"> </span><span class="line mode-only for-terminal"><span class="sx-com"># 一覧から選んで再開</span></span><span class="line mode-only for-terminal"><span class="prompt">$</span> claude <span class="sx-flag">--resume</span></span><span class="line mode-only for-terminal"><span class="sx-dim">  ⎿ </span><span class="sx-dim">過去のセッションから選ぶと会話ごと復元</span></span><span class="line mode-only for-desktop"><span class="sx-com"># サイドバーに過去のセッションが並ぶ</span></span><span class="line mode-only for-desktop"><span class="sx-fn">●</span> <span class="sx-str">認証まわりのリファクタ</span>   <span class="sx-dim">my-app · 今日</span></span><span class="line mode-only for-desktop"><span class="sx-dim">○</span> <span class="sx-str">テストの追加</span>          <span class="sx-dim">my-app · 昨日</span></span><span class="line mode-only for-desktop"><span class="sx-dim">  → クリックで会話履歴ごと復元される</span></span></pre>
+            </div>
+
+            <div class="callout">
+              <span class="ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3a9 9 0 100 18 9 9 0 000-18z" stroke="currentColor" stroke-width="1.7"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+              <p class="ct"><b>セッションは消えません。</b> 閉じても会話・フォルダー・変更はひとまとまりで残り、呼び戻せます。だから「試してダメなら閉じる」を気軽に。</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== STEP 5 / §4: 安全の基本姿勢 + 次の章へ ===== -->
+        <section class="step" data-step="5" aria-label="ステップ 5">
+          <div class="step-inner">
+            <div class="eyebrow">
+              <span class="chap-no">§4</span><span class="ln"></span><span class="sec-tag">safety</span>
+            </div>
+            <h2>慣れるまでは<span class="accent">確認多め</span>で</h2>
+            <p>
+              結論はシンプル。<strong>慣れるまでは <code class="inline">default</code> か <code class="inline">plan</code> を中心に</strong>。この 2 つなら編集・実行の前に必ずあなたの目を通せ、Claude Code の挙動への勘所も早く身につきます。
+            </p>
+            <div class="callout warn">
+              <span class="ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3l9 16H3l9-16z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 10v4M12 17h.01" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>
+              <p class="ct"><b><code class="inline">bypassPermissions</code> を安易に使わないでください。</b> 確認をいっさい省いて全権委任します。ファイル削除や危険なコマンドも止める間もなく実行され得ます。初級のうちは存在を知っておくだけで十分です。</p>
+            </div>
+            <p class="muted">
+              権限モードで「自動の度合い」を、セッションで「作業のまとまり」を扱えるようになりました。次章では毎回自動で読まれる取扱説明書
+              <span class="term" tabindex="0">CLAUDE.md<span class="pop" role="tooltip"><span class="pop-term">CLAUDE.md</span><span class="pop-def">各セッションの最初に自動で読まれるプロジェクトの取扱説明書。「うちのやり方」を最初から共有できます。</span></span></span> を用意します。
+            </p>
+          </div>
+        </section>
+
+      </main>
+
+      <!-- ============ PAGER + PROGRESS ============ -->
+      <nav class="pager" aria-label="ステップ送り">
+        <button class="pg-btn prev" id="prevBtn" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 6l-6 6 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span><span class="pg-sub">prev</span><span class="pg-main">前へ</span></span>
+        </button>
+
+        <div class="pg-center">
+          <div class="pg-bar" role="progressbar" aria-valuemin="1" aria-valuemax="5" aria-valuenow="1" aria-label="章内の進捗">
+            <div class="fill" id="pgFill" style="width:20%;"><span class="meniscus"></span></div>
+          </div>
+          <div class="pg-dots" id="pgDots" role="tablist" aria-label="ステップへ移動"></div>
+          <div class="pg-meta"><span class="cur" id="pgCur">1</span><span>/</span><span id="pgTotal">5</span><span style="margin-left:6px;" id="pgName">権限モードとは</span></div>
+        </div>
+
+        <button class="pg-btn next" id="nextBtn" type="button">
+          <span><span class="pg-sub" id="nextSub">next · §1</span><span class="pg-main" id="nextMain">次へ</span></span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M10 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+
+        <span class="swipe-hint" aria-hidden="true">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M7 8l-3 4 3 4M17 8l3 4-3 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          スワイプでめくる
+        </span>
+      </nav>
+    </div>
+  </div>
+
+  <!-- keyboard hint (desktop) -->
+  <div class="kbd-hint" id="kbdHint" aria-hidden="true"><kbd>←</kbd><kbd>→</kbd> でめくる</div>
+
+<script>
+  var RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ============================================================
+     STEP ENGINE — 1画面=1ステップ。?step= で開始位置を指定
+     ============================================================ */
+  (function(){
+    var steps = Array.prototype.slice.call(document.querySelectorAll('.step'));
+    var TOTAL = steps.length;
+    var stage = document.getElementById('stage');
+
+    /* 各ステップのメタ(pager のラベル用) */
+    var META = [
+      {sec:'導入', name:'権限モードとは'},
+      {sec:'§1',  name:'4 つのモード'},
+      {sec:'§2',  name:'モードを切り替える'},
+      {sec:'§3',  name:'セッション'},
+      {sec:'§4',  name:'安全の基本姿勢'}
+    ];
+
+    var prevBtn = document.getElementById('prevBtn');
+    var nextBtn = document.getElementById('nextBtn');
+    var nextSub = document.getElementById('nextSub');
+    var nextMain= document.getElementById('nextMain');
+    var pgFill  = document.getElementById('pgFill');
+    var pgCur   = document.getElementById('pgCur');
+    var pgTotal = document.getElementById('pgTotal');
+    var pgName  = document.getElementById('pgName');
+    var pgBar   = document.querySelector('.pg-bar');
+    var dotsBox = document.getElementById('pgDots');
+    var navSub  = document.getElementById('navSubstep');
+    var navSubLbl = document.getElementById('navSubLbl');
+    var navDots = navSub ? navSub.querySelectorAll('.nd') : [];
+
+    pgTotal.textContent = TOTAL;
+
+    /* build dots */
+    for(var i=0;i<TOTAL;i++){
+      (function(idx){
+        var b = document.createElement('button');
+        b.type='button'; b.setAttribute('role','tab');
+        b.setAttribute('aria-label', (idx+1)+' / '+TOTAL+'：'+META[idx].name);
+        b.addEventListener('click', function(){ go(idx+1); });
+        dotsBox.appendChild(b);
+      })(i);
+    }
+    var dots = dotsBox.querySelectorAll('button');
+
+    var cur = 0;          /* 1-based current step; 0 = not yet shown */
+    var animating = false;
+
+    function clampStart(n){
+      n = parseInt(n,10);
+      if(isNaN(n) || n < 1) n = 1;
+      if(n > TOTAL) n = TOTAL;
+      return n;
+    }
+
+    function render(n){
+      var m = META[n-1];
+      /* progress fill (= 液面) */
+      pgFill.style.width = (n/TOTAL*100) + '%';
+      pgCur.textContent = n;
+      pgName.textContent = m.name;
+      pgBar.setAttribute('aria-valuenow', n);
+
+      /* prev/next state */
+      prevBtn.disabled = (n === 1);
+      if(n === TOTAL){
+        nextBtn.classList.add('is-chapter-end');
+        nextSub.textContent = 'chapter';
+        nextMain.textContent = '次の章へ · 1.4';
+      } else {
+        nextBtn.classList.remove('is-chapter-end');
+        nextSub.textContent = 'next · ' + META[n].sec;
+        nextMain.textContent = '次へ';
+      }
+
+      /* dots */
+      dots.forEach(function(d, i){
+        d.classList.toggle('on', i === n-1);
+        d.classList.toggle('past', i < n-1);
+        d.setAttribute('aria-selected', i === n-1 ? 'true':'false');
+      });
+
+      /* sidebar mini step-progress (章単位サイドバー + 章内位置) */
+      if(navDots.length){
+        Array.prototype.forEach.call(navDots, function(d,i){
+          d.classList.toggle('on', i === n-1);
+          d.classList.toggle('past', i < n-1);
+        });
+        if(navSubLbl) navSubLbl.textContent = n + ' / ' + TOTAL;
+      }
+
+      /* URL を ?step= に同期(スクショ時の再現性) */
+      try{
+        var u = new URL(window.location.href);
+        u.searchParams.set('step', n);
+        history.replaceState(null, '', u);
+      }catch(e){}
+    }
+
+    function show(n, dir){
+      /* dir: +1 = forward(右→), -1 = back(←) */
+      var incoming = steps[n-1];
+      var outgoing = (cur >= 1) ? steps[cur-1] : null;
+
+      if(outgoing && outgoing !== incoming){
+        outgoing.style.setProperty('--leave', (dir >= 0 ? '-32px' : '32px'));
+        outgoing.classList.remove('is-current');
+        outgoing.classList.add('leaving');
+        (function(node){ setTimeout(function(){ node.classList.remove('leaving'); }, 520); })(outgoing);
+      }
+      incoming.style.setProperty('--enter', (dir >= 0 ? '32px' : '-32px'));
+      /* force reflow so the enter offset applies before transitioning in */
+      void incoming.offsetWidth;
+      incoming.classList.remove('leaving');
+      incoming.classList.add('is-current');
+      if(incoming.scrollTop) incoming.scrollTop = 0;
+
+      cur = n;
+      render(n);
+    }
+
+    function go(n){
+      n = clampStart(n);
+      if(n === cur) return;
+      var dir = (n > cur) ? 1 : -1;
+      if(animating) return;
+      animating = true;
+      show(n, dir);
+      setTimeout(function(){ animating = false; }, RM ? 60 : 300);
+    }
+    function next(){ if(cur < TOTAL) go(cur+1); }
+    function prev(){ if(cur > 1) go(cur-1); }
+
+    nextBtn.addEventListener('click', next);
+    prevBtn.addEventListener('click', prev);
+
+    /* keyboard ← / → (入力中・ツールチップ操作中は除外) */
+    document.addEventListener('keydown', function(e){
+      var t = e.target;
+      if(t && (t.classList && t.classList.contains('term'))) {
+        if(e.key === 'ArrowLeft' || e.key === 'ArrowRight') return;
+      }
+      if(e.key === 'ArrowRight'){ e.preventDefault(); next(); }
+      else if(e.key === 'ArrowLeft'){ e.preventDefault(); prev(); }
+      else if(e.key === 'Home'){ e.preventDefault(); go(1); }
+      else if(e.key === 'End'){ e.preventDefault(); go(TOTAL); }
+    });
+
+    /* touch swipe (mobile) */
+    (function(){
+      var x0=null, y0=null, t0=0;
+      stage.addEventListener('touchstart', function(e){
+        var t = e.changedTouches[0]; x0=t.clientX; y0=t.clientY; t0=Date.now();
+      }, {passive:true});
+      stage.addEventListener('touchend', function(e){
+        if(x0===null) return;
+        var t = e.changedTouches[0];
+        var dx = t.clientX - x0, dy = t.clientY - y0, dt = Date.now()-t0;
+        /* 横移動が主体で、縦スクロール(表/コード)と競合しない範囲のみ */
+        if(Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy)*1.6 && dt < 700){
+          if(dx < 0) next(); else prev();
+        }
+        x0=y0=null;
+      }, {passive:true});
+    })();
+
+    /* hide keyboard hint after first navigation */
+    var kbdHint = document.getElementById('kbdHint');
+    function fadeHint(){ if(kbdHint){ kbdHint.style.opacity='0'; setTimeout(function(){ if(kbdHint) kbdHint.remove(); }, 400);} }
+    nextBtn.addEventListener('click', fadeHint, {once:true});
+    prevBtn.addEventListener('click', fadeHint, {once:true});
+    document.addEventListener('keydown', function(e){ if(e.key==='ArrowLeft'||e.key==='ArrowRight') fadeHint(); }, {once:true});
+
+    /* ---- 開始ステップ: ?step= を読む(無ければ 1) ---- */
+    var params = new URLSearchParams(window.location.search);
+    var start = clampStart(params.get('step') || 1);
+    /* 初期表示はアニメ無しで即座に(スクショ安定) */
+    steps[start-1].classList.add('is-current');
+    cur = start;
+    render(start);
+  })();
+
+  /* ============================================================
+     以下 liquid-final から移植: mode toggle / nav drip / tooltip / copy
+     ============================================================ */
+
+  /* ---- mode toggle (goo) ---- */
+  (function(){
+    var tg = document.getElementById('modeToggle');
+    var btns = tg.querySelectorAll('.mode-btn');
+    var tail = tg.querySelector('.mt-liquid .tail');
+    function set(mode){
+      var cur = tg.getAttribute('data-mode');
+      if(cur === mode) return;
+      if(!RM && tail){
+        var goingDesktop = (mode === 'desktop');
+        tail.style.left = goingDesktop ? '8px' : 'calc(100% - 25px)';
+        tail.style.transform = 'translateY(-50%) scale(1)';
+        tg.classList.add('dripping');
+        requestAnimationFrame(function(){ requestAnimationFrame(function(){
+          tail.style.left = goingDesktop ? 'calc(100% - 25px)' : '8px';
+          tail.style.transform = 'translateY(-50%) scale(0)';
+        }); });
+        setTimeout(function(){ tg.classList.remove('dripping'); }, 460);
+      }
+      document.body.setAttribute('data-mode', mode);
+      tg.setAttribute('data-mode', mode);
+      btns.forEach(function(b){ b.setAttribute('aria-selected', b.getAttribute('data-for') === mode ? 'true':'false'); });
+    }
+    btns.forEach(function(b){ b.addEventListener('click', function(){ set(b.getAttribute('data-for')); }); });
+  })();
+
+  /* ---- nav drip rail (アクティブ章へしずくが寄る) ---- */
+  (function(){
+    function settle(rail){
+      var list = rail.parentElement;
+      var blob = rail.querySelector('.blob-drop');
+      if(!blob) return;
+      var active = list.querySelector('.nav-link.is-active');
+      var target = active || list.querySelector('.nav-link');
+      if(!target) return;
+      var listRect = list.getBoundingClientRect();
+      var tRect = target.getBoundingClientRect();
+      blob.style.top = ((tRect.top - listRect.top) + tRect.height/2 - 5) + 'px';
+      blob.style.opacity = active ? '.95' : '0';
+      blob.style.height = '10px';
+    }
+    function all(){ document.querySelectorAll('.drip-rail').forEach(settle); }
+    window.addEventListener('load', all);
+    window.addEventListener('resize', all);
+    all();
+    document.querySelectorAll('.nav-section').forEach(function(sec){
+      var rail = sec.querySelector('.drip-rail');
+      var blob = rail ? rail.querySelector('.blob-drop') : null;
+      var list = sec.querySelector('.nav-list');
+      if(!blob || !list) return;
+      list.querySelectorAll('.nav-link').forEach(function(lk){
+        lk.addEventListener('mouseenter', function(){
+          var listRect = list.getBoundingClientRect();
+          var r = lk.getBoundingClientRect();
+          blob.style.opacity = '.95';
+          blob.style.top = ((r.top - listRect.top) + r.height/2 - 5) + 'px';
+        });
+      });
+      list.addEventListener('mouseleave', function(){ settle(rail); });
+    });
+  })();
+
+  /* ---- mobile drawer ---- */
+  (function(){
+    var sb = document.getElementById('sidebar');
+    var ham = document.getElementById('hamburger');
+    var scrim = document.getElementById('scrim');
+    function open(){ sb.classList.add('open'); scrim.classList.add('show'); }
+    function close(){ sb.classList.remove('open'); scrim.classList.remove('show'); }
+    ham.addEventListener('click', open);
+    scrim.addEventListener('click', close);
+    sb.querySelectorAll('.nav-link').forEach(function(a){ a.addEventListener('click', close); });
+  })();
+
+  /* ---- tooltip: tap support ---- */
+  (function(){
+    document.querySelectorAll('.term').forEach(function(t){
+      t.addEventListener('click', function(e){
+        e.stopPropagation();
+        var wasOpen = t.classList.contains('open');
+        document.querySelectorAll('.term.open').forEach(function(o){ o.classList.remove('open'); });
+        if(!wasOpen) t.classList.add('open');
+      });
+      t.addEventListener('keydown', function(e){
+        if(e.key==='Enter'||e.key===' '){ e.preventDefault(); t.click(); }
+        if(e.key==='Escape') t.classList.remove('open');
+      });
+    });
+    document.addEventListener('click', function(){
+      document.querySelectorAll('.term.open').forEach(function(o){ o.classList.remove('open'); });
+    });
+  })();
+
+  /* ---- copy button (cosmetic) ---- */
+  function cc(btn){
+    var t = btn.querySelector('span');
+    var prev = t.textContent;
+    t.textContent = 'copied'; btn.style.color = 'var(--cyan)';
+    setTimeout(function(){ t.textContent = prev; btn.style.color=''; }, 1300);
+  }
+
+  /* ---- graceful fallback: backdrop-filter 非対応なら不透明に ---- */
+  (function(){
+    var ok = (window.CSS && CSS.supports && (CSS.supports('backdrop-filter','blur(1px)') || CSS.supports('-webkit-backdrop-filter','blur(1px)')));
+    if(!ok){ document.documentElement.style.setProperty('--glass','rgba(34,34,41,.94)');
+             document.documentElement.style.setProperty('--glass-2','rgba(40,40,49,.96)'); }
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+---
+title: インストールと初期設定
+part: beginner
+order: 1
+level: 初級
+summary: 自分の環境に Claude Code を入れて、起動できる状態を作ります。OS ごとの入れ方と、初心者がつまずきやすい「自動更新の罠」まで押さえます。
+readingTime: 7
+updated: 2026-06-27
+---
+
+この章のゴールは明確です。**自分のマシンで Claude Code を起動できる状態にする**。それだけ。モードによって入れるものが違うので、右上のトグルで自分の環境を選んでから読み進めてください。
+
+<ModeBlock mode="terminal">
+<Callout>
+  <b>ターミナル版を選んでいます。</b> ここでは <Term id="cli">CLI</Term>（コマンドラインツール）をインストールします。シェル（macOS / Linux なら zsh や bash、Windows なら PowerShell や <Term id="wsl">WSL</Term>）が使える前提です。
+</Callout>
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+<Callout>
+  <b>デスクトップアプリ版を選んでいます。</b> ここでは GUI アプリをダウンロードして入れます。アプリは **macOS / Windows のみ** で、<Term id="desktop">Linux には対応していません</Term>。Linux の方はターミナル版に切り替えてください。
+</Callout>
+</ModeBlock>
+
+## §1 インストールする
+
+<ModeBlock mode="terminal">
+### 推奨: ネイティブ版（自動更新あり）
+
+いちばん簡単で、かつ <Term id="auto-update">自動更新</Term> が効くのが <Term id="native-install">ネイティブインストール</Term> です。公式のインストーラを実行するだけです。
+
+<CodeBlock title="macOS / Linux / WSL — bash" badge="CLI">
+<span class="line"><span class="sx-com"># 公式インストーラを実行（推奨・自動更新あり）</span></span>
+<span class="line"><span class="prompt">$</span> curl -fsSL <span class="sx-flag">https://claude.ai/install.sh</span> | bash</span>
+</CodeBlock>
+
+Windows の PowerShell では次の 1 行です。
+
+<CodeBlock title="Windows — PowerShell" badge="CLI">
+<span class="line"><span class="prompt">&gt;</span> irm <span class="sx-flag">https://claude.ai/install.ps1</span> | iex</span>
+</CodeBlock>
+
+### Homebrew で入れる場合（自動更新なし）
+
+macOS / Linux で <Term id="homebrew">Homebrew</Term> を使っているなら、こちらでも入ります。
+
+<CodeBlock title="Homebrew" badge="CLI">
+<span class="line"><span class="sx-com"># 安定版</span></span>
+<span class="line"><span class="prompt">$</span> brew install --cask <span class="sx-key">claude-code</span></span>
+</CodeBlock>
+
+<Callout type="warn">
+  <b>自動更新の罠に注意。</b> ネイティブ版は裏で最新版に更新され続けますが、**Homebrew / WinGet 版は自動更新されません**。Homebrew で入れた場合は、ときどき自分で <code class="inline">brew upgrade</code> を実行して最新に保ってください。「古い版のままで新機能が無い」の多くはこれが原因です。
+</Callout>
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+### アプリをダウンロードする
+
+公式サイトからお使いの OS 向けのインストーラをダウンロードし、通常のアプリと同じ手順で入れます。
+
+- **macOS** — ダウンロードした `.dmg` を開き、アプリをアプリケーションフォルダーへドラッグ。
+- **Windows**（x64 / ARM64）— インストーラを実行して指示に従う。
+
+<Callout type="warn">
+  <b>Linux は非対応です。</b> デスクトップアプリは macOS / Windows のみ。Linux で使いたい場合は、このページ右上のトグルを「ターミナル」に切り替えて CLI を入れてください。
+</Callout>
+
+なお、JetBrains 系 IDE（IntelliJ / PyCharm など）と連携して使いたい場合は、アプリとは**別に CLI のインストールも必要**になります。まずはアプリ単体で起動するところまで進めれば十分です。
+</ModeBlock>
+
+## §2 はじめてのログインと起動
+
+インストールできたら、起動して初回ログインを済ませます。
+
+<ModeBlock mode="terminal">
+作業したいプロジェクトのフォルダーに移動してから `claude` を起動するのが基本の形です。初回は認証（ログイン）を求められます。
+
+<CodeBlock title="zsh — claude" badge="CLI">
+<span class="line"><span class="sx-com"># 作業したいプロジェクトへ移動して起動</span></span>
+<span class="line"><span class="prompt">$</span> cd <span class="sx-flag">~/projects/my-app</span></span>
+<span class="line"><span class="prompt">$</span> <span class="sx-key">claude</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">  ログインページが開きます。ブラウザで認証してください…</span></span>
+<span class="line"> </span>
+<span class="line"><span class="prompt cy">&gt;</span> <span class="caret" aria-hidden="true"></span></span>
+</CodeBlock>
+
+`>` のプロンプトが出れば成功です。あとは日本語で指示を打ち込むだけ。次章で最初のタスクを実際に投げてみます。
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+インストールしたアプリを起動すると、最初に認証（ログイン）画面が出ます。画面の案内に従ってサインインしてください。
+
+ログインすると **Chat / Cowork / Code** の 3 つのタブを持つメイン画面が開きます。まずは作業したいフォルダーを開き、チャット欄に日本語で指示を入力する——これが基本の流れです。差分の確認や複数セッションの並列実行は、追って各章で触れます。
+</ModeBlock>
+
+<Callout>
+  <b>どちらのモードでも、設定は共通して効きます。</b> このあと学ぶ <Term id="claude-md">CLAUDE.md</Term> や <Term id="mcp">MCP</Term>、各種の設定は、ターミナル版でもデスクトップ版でも同じように働きます。入り口が違うだけで、土台は 1 つです。
+</Callout>
+
+## §3 うまくいかないときは
+
+- **`claude: command not found`（ターミナル）** — インストール後にシェルを開き直す（または `source ~/.zshrc` など）と PATH が通ることがあります。
+- **アプリが起動しない（デスクトップ）** — OS のバージョンが対応範囲か確認してください。古い OS では動かない場合があります。
+- **動作が古い・新機能が無い** — §1 の「自動更新の罠」を参照。Homebrew / WinGet 版は手動更新が要ります。
+
+起動さえできれば、初級の山はほぼ越えています。次章「最初のセッション」では、自然言語でひとつタスクを完遂させる成功体験を作りにいきます。

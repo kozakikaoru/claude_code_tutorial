@@ -1,0 +1,556 @@
+/* ============================================================
+   components.css — アプリシェル/ナビ系のスタイル
+   app shell・sidebar・topbar・mode-toggle・progress・pager・footer・
+   responsive。liquid-final.html のシェル部を移植。
+   ============================================================ */
+
+/* ---- APP SHELL ---- */
+.app { display: flex; min-height: 100vh; position: relative; z-index: 1; }
+
+/* ---- Sidebar (liquid glass rail) ---- */
+.sidebar {
+  width: var(--sidebar-w); flex: 0 0 var(--sidebar-w);
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  padding: 30px 0 40px;
+  background: linear-gradient(180deg, rgba(31,31,36,.66), rgba(26,26,30,.72));
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  backdrop-filter: blur(18px) saturate(1.5);
+  border-right: 1px solid var(--glass-edge2);
+  box-shadow: inset -1px 0 0 rgba(255,255,255,.03);
+  scrollbar-width: thin; scrollbar-color: var(--rule-2) transparent;
+}
+.sidebar::-webkit-scrollbar { width: 8px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--rule-2); border-radius: 4px; }
+
+.brand {
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 26px 26px; margin-bottom: 6px;
+  border-bottom: 1px solid var(--glass-edge2);
+}
+.brand-mark {
+  width: 40px; height: 40px; flex: 0 0 40px; border-radius: 11px;
+  position: relative; overflow: hidden;
+  background: linear-gradient(150deg, rgba(245,177,76,.22), rgba(92,200,214,.16) 70%, rgba(154,137,216,.18));
+  border: 1px solid var(--glass-edge);
+  display: grid; place-items: center;
+  box-shadow: 0 0 0 1px rgba(245,177,76,.10), 0 6px 18px -8px rgba(245,177,76,.5), inset 0 1px 0 rgba(255,255,255,.18);
+}
+.brand-mark::before {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(60% 45% at 32% 22%, rgba(255,255,255,.42), transparent 60%);
+  pointer-events: none;
+}
+.brand-mark svg { display: block; position: relative; }
+.brand-name { font-family: var(--font-serif); font-weight: 500; font-size: 19px; letter-spacing: .01em; line-height: 1.2; display: block; }
+.brand-name em { font-style: italic; color: var(--amber); }
+.brand-sub { font-size: 11px; color: var(--ink-3); letter-spacing: .18em; text-transform: uppercase; margin-top: 1px; display: block; }
+
+.nav { padding: 18px 14px 0; }
+.nav-section { margin-bottom: 22px; }
+.nav-head {
+  display: flex; align-items: baseline; gap: 9px;
+  padding: 0 12px 8px; color: var(--ink-3);
+  font-size: 11px; letter-spacing: .2em; text-transform: uppercase;
+}
+.nav-head .num {
+  font-family: var(--font-serif); font-style: italic; font-size: 14px;
+  color: var(--amber-dim); letter-spacing: 0; text-transform: none;
+}
+
+/* ---- nav list with goo "しずくレール" ---- */
+.nav-list { list-style: none; margin: 0; padding: 0 0 0 2px; position: relative; }
+.drip-rail {
+  position: absolute; left: 9px; top: 0; bottom: 0; width: 16px;
+  filter: url(#gooAmber); pointer-events: none; z-index: 0;
+}
+.drip-rail .blob-drop {
+  position: absolute; left: 3px; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--amber); opacity: 0;
+  box-shadow: 0 0 10px -2px var(--amber-glow);
+  transition: opacity .3s, height .3s, top .4s cubic-bezier(.5,1.35,.5,1);
+}
+.nav-link {
+  position: relative; z-index: 1; display: flex; align-items: center; gap: 11px;
+  padding: 7px 12px 7px 26px; border-radius: 9px; margin: 1px 0;
+  color: var(--ink-2); font-size: 14px; line-height: 1.5;
+  border: 1px solid transparent;
+  transition: background .18s, color .18s, border-color .18s, box-shadow .18s;
+  overflow: hidden;
+}
+.nav-link::before {
+  content: ""; position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--rule-2); transition: background .18s, transform .18s, box-shadow .18s;
+  z-index: 1;
+}
+.nav-link .idx {
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-3);
+  min-width: 22px; flex: 0 0 22px; transition: color .18s;
+}
+.nav-link:hover {
+  background: rgba(255,255,255,.045); color: var(--ink);
+  border-color: var(--glass-edge2);
+}
+.nav-link:hover::before { background: var(--amber-dim); transform: translateY(-50%) scale(1.15); }
+.nav-link.is-active {
+  color: var(--ink);
+  background: linear-gradient(100deg, var(--amber-glow), rgba(154,137,216,.06) 80%);
+  border-color: rgba(245,177,76,.28);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 0 22px -12px var(--amber);
+}
+.nav-link.is-active::after {
+  content: ""; position: absolute; top: 0; left: -40%; width: 38%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.10), transparent);
+  transform: skewX(-18deg);
+  animation: sheen 5.5s ease-in-out infinite;
+}
+@keyframes sheen { 0%,72% { left: -40%; } 88%,100% { left: 130%; } }
+.nav-link.is-active::before {
+  background: var(--amber); transform: translateY(-50%) scale(1.05);
+  box-shadow: 0 0 0 3px rgba(245,177,76,.12);
+}
+.nav-link.is-active .idx { color: var(--amber); }
+.nav-link.is-done .idx { color: var(--cyan); }
+.nav-link.is-done::before { background: var(--cyan); opacity: .6; }
+
+/* ---- Main column ---- */
+.main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+
+/* topbar */
+.topbar {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; gap: 18px;
+  padding: 13px clamp(22px,5vw,64px);
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(16px) saturate(1.7) brightness(1.04);
+  backdrop-filter: blur(16px) saturate(1.7) brightness(1.04);
+  border-bottom: 1px solid var(--glass-edge2);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 10px 30px -24px #000;
+}
+.hamburger {
+  display: none; width: 40px; height: 40px; flex: 0 0 40px;
+  background: var(--glass-2); border: 1px solid var(--glass-edge); border-radius: 10px;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  color: var(--ink-2); cursor: pointer; align-items: center; justify-content: center;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+}
+.hamburger:hover { color: var(--amber); }
+.crumbs { font-size: 12.5px; color: var(--ink-3); letter-spacing: .04em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crumbs b { color: var(--ink-2); font-weight: 500; }
+.topbar-spacer { flex: 1 1 auto; }
+
+/* ---- MODE TOGGLE — ガラス枠 + goo メタボール ---- */
+.mode-toggle {
+  display: inline-flex; align-items: center; gap: 0; position: relative; flex: 0 0 auto;
+  padding: 4px; border-radius: 14px;
+  background: var(--glass-2);
+  -webkit-backdrop-filter: blur(10px) saturate(1.4); backdrop-filter: blur(10px) saturate(1.4);
+  border: 1px solid var(--glass-edge);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.10), inset 0 -1px 0 rgba(0,0,0,.25);
+}
+.mt-liquid {
+  position: absolute; inset: 4px; z-index: 0;
+  filter: url(#gooAmber); pointer-events: none;
+}
+.mt-liquid .thumb {
+  position: absolute; top: 0; left: 0; bottom: 0; width: 50%;
+  border-radius: 11px;
+  background: linear-gradient(160deg, rgba(245,177,76,.92), var(--amber-deep));
+  transition: transform .42s cubic-bezier(.5,1.35,.4,1), background .3s;
+}
+.mt-liquid .thumb::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  background: radial-gradient(70% 55% at 30% 22%, rgba(255,255,255,.40), transparent 62%);
+}
+.mt-liquid .tail {
+  position: absolute; top: 50%; left: 8px; transform: translateY(-50%) scale(0);
+  width: 17px; height: 17px; border-radius: 50%;
+  background: var(--amber-dim); opacity: 0;
+  transition: transform .42s cubic-bezier(.5,1.35,.4,1), left .42s cubic-bezier(.5,1.35,.4,1), opacity .42s, background .3s;
+}
+.mode-toggle[data-mode="terminal"] .mt-liquid .thumb { transform: translateX(0); }
+.mode-toggle[data-mode="desktop"]  .mt-liquid .thumb {
+  transform: translateX(100%);
+  background: linear-gradient(160deg, rgba(92,200,214,.9), var(--cyan-deep));
+}
+.mode-toggle[data-mode="desktop"]  .mt-liquid .tail { background: var(--cyan-deep); }
+.mode-toggle.dripping .mt-liquid .tail { opacity: 1; }
+
+.mode-btn {
+  position: relative; z-index: 1; appearance: none; background: none; border: 0;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 15px; min-width: 118px; justify-content: center;
+  font-family: var(--font-sans); font-size: 13px; font-weight: 500;
+  color: var(--ink-3); transition: color .25s; white-space: nowrap;
+}
+.mode-btn svg { flex: 0 0 auto; }
+.mode-toggle[data-mode="terminal"] .mode-btn[data-for="terminal"] { color: #241a09; }
+.mode-toggle[data-mode="desktop"]  .mode-btn[data-for="desktop"]  { color: #06262b; }
+.mode-toggle[data-mode="terminal"] .mode-btn[data-for="desktop"]:hover { color: var(--cyan); }
+.mode-toggle[data-mode="desktop"]  .mode-btn[data-for="terminal"]:hover { color: var(--amber); }
+.mode-btn .lbl-sm { display: none; }
+
+/* ---- PROGRESS — メニスカス + 気泡 + 読了で泡 ---- */
+.progress { margin: 0 0 42px; }
+.progress-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 9px; }
+.progress-row .lab { font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); }
+.progress-row .val { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); }
+.progress-row .val b { color: var(--amber); font-weight: 500; }
+
+.glass-meter {
+  position: relative; height: 26px; border-radius: 10px; overflow: hidden;
+  background: linear-gradient(180deg, rgba(20,20,24,.6), rgba(35,35,41,.5));
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+  border: 1px solid var(--glass-edge2);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.4), inset 0 -8px 16px -10px rgba(245,177,76,.15);
+}
+.liquid {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 25%;
+  background: linear-gradient(90deg, var(--amber-dim), var(--amber) 70%, #ffd089);
+  box-shadow: 0 0 22px -6px var(--amber-glow), inset 0 1px 0 rgba(255,255,255,.3);
+  transition: width 1.1s cubic-bezier(.45,.05,.2,1);
+  overflow: hidden;
+}
+.liquid .meniscus {
+  position: absolute; top: -1px; right: -1px; bottom: -1px; width: 12px;
+  background: linear-gradient(90deg, transparent, rgba(255,247,232,.0), rgba(255,247,232,.6));
+  border-right: 2px solid rgba(255,247,232,.85);
+  border-radius: 50%;
+}
+.liquid .surface-sheen {
+  position: absolute; top: 3px; left: 6px; right: 12px; height: 4px; border-radius: 5px;
+  background: linear-gradient(90deg, rgba(255,255,255,.25), rgba(255,255,255,.04));
+  filter: blur(.4px);
+}
+.liquid .b {
+  position: absolute; bottom: -6px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(255,252,244,.9), rgba(255,252,244,.15) 65%, transparent 72%);
+  animation: bubbleInGlass linear infinite;
+}
+@keyframes bubbleInGlass {
+  0% { transform: translateY(0) scale(.7); opacity: 0; }
+  20% { opacity: .85; }
+  90% { opacity: .5; }
+  100% { transform: translateY(-24px) scale(1); opacity: 0; }
+}
+.pop-bubble {
+  position: absolute; bottom: 4px; border-radius: 50%; pointer-events: none; z-index: 3;
+  background: radial-gradient(circle at 35% 30%, rgba(255,252,244,.95), rgba(245,177,76,.35) 60%, transparent 72%);
+  box-shadow: 0 0 8px -1px var(--amber-glow);
+  animation: popUp 1.5s cubic-bezier(.3,.7,.4,1) forwards;
+}
+@keyframes popUp {
+  0% { transform: translateY(0) translateX(0) scale(.5); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translateY(-66px) translateX(var(--dx,0)) scale(1.1); opacity: 0; }
+}
+.progress-foot { display: flex; align-items: center; gap: 12px; margin-top: 11px; }
+.done-btn {
+  appearance: none; cursor: pointer;
+  font-family: var(--font-sans); font-size: 12.5px; font-weight: 500;
+  color: var(--amber);
+  background: linear-gradient(160deg, rgba(255,255,255,.10), rgba(245,177,76,.06));
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  border: 1px solid rgba(245,177,76,.4); border-radius: 9px; padding: 6px 14px;
+  display: inline-flex; align-items: center; gap: 8px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
+  transition: background .18s, box-shadow .18s, transform .12s, color .18s, border-color .18s;
+}
+.done-btn:hover { background: rgba(245,177,76,.16); box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 0 20px -8px var(--amber); }
+.done-btn:active { transform: translateY(1px); }
+.done-btn.is-done {
+  color: var(--cyan); border-color: rgba(92,200,214,.5);
+  background: linear-gradient(160deg, rgba(255,255,255,.10), rgba(92,200,214,.08));
+}
+.done-hint { font-size: 12px; color: var(--ink-3); }
+
+/* ---- pager — liquid glass cards ---- */
+.pager {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  margin: 54px 0 10px; padding-top: 30px; border-top: 1px solid var(--rule);
+}
+.pager a {
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column; gap: 5px;
+  border-radius: 14px; padding: 16px 18px;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3); backdrop-filter: blur(10px) saturate(1.3);
+  border: 1px solid var(--glass-edge2);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+  transition: border-color .2s, background .2s, transform .2s, box-shadow .2s;
+}
+.pager a:hover {
+  border-color: rgba(245,177,76,.35); transform: translateY(-2px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 16px 32px -20px var(--amber-glow);
+}
+.pager a.next { text-align: right; align-items: flex-end; }
+.pager a.is-disabled { opacity: .4; pointer-events: none; }
+.pager .dir {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3);
+  display: flex; align-items: center; gap: 7px;
+}
+.pager a:hover .dir { color: var(--amber); }
+.pager .pg-title { font-family: var(--font-serif); font-weight: 500; font-size: 17px; color: var(--ink); line-height: 1.3; }
+
+/* footer */
+.foot {
+  max-width: var(--maxread); margin: 24px auto 0; width: 100%;
+  padding: 34px clamp(22px,5vw,40px) 56px;
+  border-top: 1px solid var(--rule);
+  display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center;
+  color: var(--ink-3); font-size: 12px;
+}
+.foot .sep { color: var(--rule-2); }
+.foot a:hover { color: var(--amber); }
+
+.scroll { flex: 1 1 auto; }
+
+/* ============================================================
+   STEP UI — §（H2）ひとつ = 1 ステップ（ADR-003 / step-design.md §3）
+   既定は「全 section を縦表示」= JS 無効/クローラ向けフォールバック（=従来の見た目）。
+   html.js が付いたとき（= JS 有効）だけ 1 枚化し、100dvh の枠に中央寄せで収める。
+   色・質感はトークン踏襲（新色を足さない）。
+   ============================================================ */
+
+/* --- 高さの器（JS 有効時のみ 1 画面に閉じる） --- */
+/* JS 有効時は main をビューポート高に固定し、内部の stepframe で 1 ステップを収める。 */
+html.js .main { height: 100dvh; }
+/* dvh 非対応の保険（古い実装）: vh で近似（dvh が効く環境では上書きされる） */
+@supports not (height: 100dvh) {
+  html.js .main { height: 100vh; }
+}
+
+/* stepframe: トップバーを除いた残り高さを占有し、ここに 1 ステップを描く。
+   min-height:0 が無いと flex 子が縮まずあふれるので必須。overflow:hidden で枠外を切る。
+   ただしツールチップ（.term .pop）が枠で切れないよう、JS 無効時は通常フロー（visible）。 */
+html.js .stepframe {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  overflow: hidden;
+}
+/* JS 有効時、.article は枠いっぱいに広がる透明コンテナ（カラム幅は .step-inner が持つ）。 */
+html.js .stepframe > .article {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+}
+/* JS 有効時、表紙(step-cover)は step-0 へ移動するので、元位置のものは隠す（移動失敗時の保険）。 */
+html.js .stepframe > #stepCover { display: none; }
+/* JS 無効（フォールバック）時は stepframe は素の縦積みコンテナ */
+.stepframe { display: block; }
+
+/* JS 有効時、フッターは 1 画面を圧迫するので隠す（用語集はサイドバー/表紙から辿れる）。
+   JS 無効時は従来どおり表示（縦スクロールで最後に出る）。 */
+html.js .main > .foot { display: none; }
+
+/* --- 表紙（step-cover）= ステップ0 の冒頭。StepDeck が step-0 の .step-inner 先頭へ差し込む。 --- */
+/* 差し込み前（JS 無効/初期 HTML）の素の見た目: article と同じ最大幅・中央寄せで縦に並ぶ。 */
+.step-cover {
+  max-width: var(--maxread); margin: 0 auto;
+  padding: 56px clamp(22px, 5vw, 40px) 0;
+}
+/* StepDeck が step-0 内へ移動した後は、.step-inner の余白に乗るので自前 padding を消す。 */
+html.js .step .step-cover { max-width: none; margin: 0; padding: 0; }
+/* 表紙（step0）を 1 画面に収めるための引き締め（縦の専有を抑える。色・質感は不変）。
+   表紙は要素が多い（eyebrow/h1/lede/byline/progress/done）ので、ここだけ余白を詰める。 */
+html.js .step[data-active] .step-cover .title { font-size: clamp(30px, 4.2vw, 44px); margin-bottom: 14px; }
+html.js .step[data-active] .step-cover .lede { margin-bottom: 12px; }
+html.js .step[data-active] .step-cover .byline { margin-bottom: 22px; padding-top: 12px; }
+html.js .step[data-active] .step-cover .progress { margin-bottom: 22px; }
+/* 表紙では読了ヒント文（装飾）は省いて高さを稼ぐ（ボタン自体は残す）。 */
+html.js .step[data-active] .step-cover .done-hint { display: none; }
+/* 表紙に続く MDX リード文は上マージンを詰める。 */
+html.js .step[data-active] .step-cover + p { margin-top: 0; }
+
+/* --- ステップ本体 --- */
+/* 既定（JS 無効）: すべて縦に表示（従来どおり全文が読める） */
+.step { display: block; }
+/* 各ステップの内容ラッパ（中央寄せ・最大幅） */
+.step-inner {
+  width: 100%;
+  max-width: var(--maxread);
+  margin: 0 auto;
+  padding: 8px clamp(22px, 5vw, 40px);
+}
+
+/* JS 有効: アクティブな 1 枚だけ表示し、stepframe の中で縦中央に座らせる */
+html.js .step { display: none; }
+html.js .step[data-active] {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;   /* 短いステップは画面中央に */
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;          /* はみ出す時だけこのステップ内でスクロール */
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule-2) transparent;
+}
+html.js .step[data-active]::-webkit-scrollbar { width: 8px; }
+html.js .step[data-active]::-webkit-scrollbar-thumb { background: var(--rule-2); border-radius: 4px; }
+/* 内容がフレームより高い時（送り JS が付与）: 中央寄せを解除して上詰め（中央だと上が見切れる） */
+html.js .step[data-active].is-overflow { justify-content: flex-start; }
+html.js .step[data-active].is-overflow .step-inner { padding-top: clamp(20px, 4vh, 44px); padding-bottom: clamp(20px, 4vh, 44px); }
+
+/* JS 有効時、ステップ内の最初の見出し（h2）はステップの“顔”。上マージンを詰めて中央寄せを活かす。 */
+html.js .step[data-active] .step-inner > :first-child { margin-top: 0; }
+html.js .step .article-h2:first-child { margin-top: 0; }
+
+/* --- トランジション（フェード。横スライドは data-dir で後付け可能） --- */
+.step { transition: opacity .28s ease, transform .32s cubic-bezier(.4, 0, .2, 1); }
+html.js .step:not([data-active]) { opacity: 0; }
+html.js .step[data-active] { opacity: 1; }
+/* 方向つきの軽い横スライド（送り JS が stepframe に data-dir を付ける） */
+html.js .stepframe[data-dir="next"] .step[data-active] { animation: stepInNext .34s cubic-bezier(.22, .61, .36, 1) both; }
+html.js .stepframe[data-dir="prev"] .step[data-active] { animation: stepInPrev .34s cubic-bezier(.22, .61, .36, 1) both; }
+@keyframes stepInNext {
+  from { opacity: 0; transform: translateX(22px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes stepInPrev {
+  from { opacity: 0; transform: translateX(-22px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ステップ内では本文の上下の大きなマージン（h2 の 54px 等）が中央寄せを崩すので、
+   1 枚化時はやや控えめにする（縦表示時の prose.css は据え置き）。 */
+html.js .step[data-active] .step-inner h2 { margin-top: 10px; }
+html.js .step[data-active] .step-inner > p:last-child,
+html.js .step[data-active] .step-inner > .callout:last-child,
+html.js .step[data-active] .step-inner > .codeblock:last-child { margin-bottom: 0; }
+
+/* ============================================================
+   STEP NAV — 章内ステップ進捗（ドット / 多い章はバー + 番号）+ 前後ボタン（§4.1）
+   ============================================================ */
+.stepnav {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 14px;
+  max-width: var(--maxread); width: 100%;
+  margin: 0 auto; padding: 12px clamp(22px, 5vw, 40px) 20px;
+}
+/* JS 無効時は送り UI を出さない（縦表示では無意味）。html.js のときだけ表示。 */
+.stepnav { display: none; }
+html.js .stepnav { display: flex; }
+
+.stepnav .nav-btn {
+  appearance: none; cursor: pointer; flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--font-sans); font-size: 12.5px; font-weight: 500;
+  color: var(--ink-2);
+  background: var(--glass-2);
+  -webkit-backdrop-filter: blur(8px) saturate(1.3); backdrop-filter: blur(8px) saturate(1.3);
+  border: 1px solid var(--glass-edge); border-radius: 10px; padding: 8px 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
+  transition: color .18s, border-color .18s, background .18s, box-shadow .18s, transform .12s, opacity .18s;
+}
+.stepnav .nav-btn:hover {
+  color: var(--amber); border-color: var(--amber-dim);
+  background: rgba(245, 177, 76, .08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 0 20px -10px var(--amber);
+}
+.stepnav .nav-btn:active { transform: translateY(1px); }
+.stepnav .nav-btn:disabled { opacity: .35; cursor: default; pointer-events: none; }
+.stepnav .nav-btn svg { flex: 0 0 auto; }
+.stepnav .nav-btn.next { margin-left: auto; }
+.stepnav .nav-btn.prev { margin-right: 0; }
+/* 章境界アクション（前章末尾 / 次章先頭へ）はアンバーで“またぐ”を示す */
+.stepnav .nav-btn.cross {
+  color: var(--amber); border-color: rgba(245, 177, 76, .4);
+  background: linear-gradient(160deg, rgba(255, 255, 255, .10), rgba(245, 177, 76, .06));
+}
+
+/* 中央: ドット列（既定） */
+.stepnav .dots {
+  flex: 1 1 auto; display: flex; align-items: center; justify-content: center;
+  gap: 9px; min-width: 0; flex-wrap: wrap;
+}
+.stepnav .dot {
+  appearance: none; cursor: pointer; padding: 0; border: 0; background: none;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--rule-2);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .04);
+  transition: background .2s, transform .2s, box-shadow .2s;
+}
+.stepnav .dot:hover { background: var(--amber-dim); transform: scale(1.2); }
+.stepnav .dot[aria-current="true"] {
+  background: var(--amber); transform: scale(1.15);
+  box-shadow: 0 0 0 3px rgba(245, 177, 76, .14), 0 0 10px -2px var(--amber);
+}
+.stepnav .dot.done { background: var(--cyan); opacity: .6; }
+
+/* 中央: バー + 番号（ドットが詰まる章 = 8 超で送り JS が .as-bar を付与） */
+.stepnav .meter {
+  display: none; flex: 1 1 auto; align-items: center; gap: 12px; min-width: 0;
+}
+.stepnav.as-bar .dots { display: none; }
+.stepnav.as-bar .meter { display: flex; }
+.stepnav .meter .track {
+  position: relative; flex: 1 1 auto; height: 6px; border-radius: 4px; overflow: hidden;
+  background: linear-gradient(180deg, rgba(20, 20, 24, .6), rgba(35, 35, 41, .5));
+  border: 1px solid var(--glass-edge2);
+}
+.stepnav .meter .fill {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
+  background: linear-gradient(90deg, var(--amber-dim), var(--amber) 70%, #ffd089);
+  box-shadow: 0 0 14px -4px var(--amber-glow);
+  transition: width .34s cubic-bezier(.45, .05, .2, 1);
+}
+.stepnav .meter .count {
+  flex: 0 0 auto; font-family: var(--font-mono); font-size: 12px; color: var(--ink-2);
+  white-space: nowrap;
+}
+.stepnav .meter .count b { color: var(--amber); font-weight: 500; }
+
+/* SR 用の状態通知（視覚的に隠す） */
+.sr-live {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 980px) {
+  .sidebar {
+    position: fixed; top: 0; left: 0; z-index: 50;
+    transform: translateX(-100%); transition: transform .3s cubic-bezier(.4,.02,.2,1);
+    box-shadow: 0 0 60px -10px #000;
+  }
+  .sidebar.open { transform: translateX(0); }
+  .hamburger { display: inline-flex; }
+  .main { width: 100%; }
+}
+@media (max-width: 600px) {
+  body { font-size: 15.5px; }
+  .article { padding: 38px 20px 24px; }
+  .mode-btn { min-width: 46px; padding: 8px 11px; }
+  .mode-btn .lbl-lg { display: none; }
+  .mode-btn .lbl-sm { display: inline; }
+  .crumbs { display: none; }
+  .pager { grid-template-columns: 1fr; }
+  .term .pop { width: 240px; }
+  h1.title { font-size: 31px; }
+  .blob { filter: blur(54px); }
+  .done-hint { display: none; }
+
+  /* ステップ送り: モバイルは前後ボタンの文字を畳んでアイコン主体に、中央はバー寄り */
+  .stepnav { gap: 10px; padding: 10px 16px 16px; }
+  .stepnav .nav-btn { padding: 8px 11px; }
+  .stepnav .nav-btn .lbl { display: none; }
+  .step-inner { padding-left: 20px; padding-right: 20px; }
+}
+
+/* reduced-motion での accent 単色化（prose.css 側と整合）＋ ステップ送りアニメ停止 */
+@media (prefers-reduced-motion: reduce) {
+  h1.title .accent { -webkit-text-fill-color: initial; color: var(--amber); background: none; }
+  /* ステップ切替アニメ（スライド/フェード）を止める。表示/非表示は即時切替に。 */
+  .step { transition: none; }
+  html.js .stepframe[data-dir] .step[data-active] { animation: none; }
+  .stepnav .meter .fill { transition: none; }
+}

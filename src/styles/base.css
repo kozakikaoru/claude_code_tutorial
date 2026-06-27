@@ -1,0 +1,36 @@
+/* ============================================================
+   base.css — リセット / html・body / タイポ基礎 / ::selection
+   （liquid-final.html の基礎部分）
+   ============================================================ */
+* { box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  /* フォーム UI 等もダークに揃える（design.md §5.1） */
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.85;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "palt" 1;
+  position: relative;
+  overflow-x: hidden;
+}
+
+a { color: inherit; text-decoration: none; }
+
+::selection { background: var(--amber-glow); color: var(--ink); }
+
+/* キーボード操作のフォーカスリングを全インタラクティブ要素に確保（design.md §5.5） */
+:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
