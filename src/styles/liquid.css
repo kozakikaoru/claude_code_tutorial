@@ -147,10 +147,10 @@ body:not([data-mode]) span.mode-only.for-terminal { display: inline; }
 .pop-def { font-size: 13.5px; line-height: 1.65; color: var(--ink-2); margin: 0; position: relative; }
 .pop-def b { color: var(--ink); font-weight: 500; }
 
-/* scrim for mobile drawer */
+/* scrim for mobile drawer — 背面を確実に隠す濃い暗幕。
+   blur は環境依存（iOS で効かない／重い）なので可読性は単色の不透明度に委ねる。 */
 .scrim {
-  position: fixed; inset: 0; background: rgba(8,8,10,.55);
-  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  position: fixed; inset: 0; background: rgba(6,6,8,.82);
   opacity: 0; visibility: hidden; transition: opacity .24s; z-index: 40;
 }
 .scrim.show { opacity: 1; visibility: visible; }

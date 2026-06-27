@@ -186,4 +186,15 @@ const firstChapter = sorted[0];
     margin-top: auto; font-family: var(--font-mono); font-size: 11px; color: var(--ink-3);
     border: 1px dashed var(--rule-2); border-radius: 6px; padding: 4px 9px; align-self: flex-start;
   }
+
+  /* --- モバイル: ヒーロー/各セクション見出しを一段小さく、余白も詰める --- */
+  @media (max-width: 600px) {
+    .home { padding-top: 44px; }
+    .hero { margin-bottom: 48px; }
+    .hero-actions { margin-top: 24px; gap: 12px; }
+    .cta, .cta-ghost { padding: 11px 20px; }
+    .block { margin-bottom: 48px; }
+    .sec-h { font-size: 21px; }
+    .sec-sub { font-size: 13.5px; margin-bottom: 20px; }
+  }
 </style>
