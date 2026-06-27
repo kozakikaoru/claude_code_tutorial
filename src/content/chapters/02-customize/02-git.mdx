@@ -1,0 +1,103 @@
+---
+title: ファイル編集と Git 連携 — コミットも PR も任せる
+part: customize
+order: 3
+level: 初中級
+summary: 複数ファイルの編集から、ステージ・コミット・ブランチ・PR まで。Git 操作を一言で丸ごと任せる流れを学びます。差分は必ず自分の目で確認し、良いコミット単位を意識する——任せ方の作法もここで身につけます。
+readingTime: 8
+updated: 2026-06-27
+---
+
+前章までで Claude を「自分仕様」に寄せてきました。この章のゴールは、**実装から Git までを一続きで任せられるようになる**こと。複数ファイルにまたがる編集も、`git add` からコミットメッセージ、ブランチ作成、<Term id="pull-request">PR</Term> 提出までも、自然言語のひとことで回せます。
+
+手で `git` コマンドを覚え直す必要はありません。「コミットして」「PR 作って」——それで通じます。ただし、任せきりにしないための作法もあわせて押さえます。
+
+## §1 編集は、ファイルをまたいで進む
+
+Claude の編集は単一ファイルでは終わりません。ひとつの変更が波及する箇所を<Term id="repository">リポジトリ</Term>全体から見つけ、まとめて直します。さらにテストを走らせ、落ちれば自分で直し直す——この<Term id="verification">検証</Term>の往復まで含めて一気通貫です。
+
+たとえば「ログイン処理の戻り値の型を変えて」と頼めば、定義元・呼び出し側・テストの三箇所を横断して直し、`npm test` で確認するところまで自分で進めます。あなたが渡すのは目的だけ。どのファイルを触るかは<Term id="agent">エージェント</Term>が決めます。
+
+<Callout>
+  まず「編集 → 検証」が一周してから、その変更を Git に記録します。コミットは<strong>動くことを確かめた区切り</strong>で打つ——この順番が、あとで履歴を読み返すときに効いてきます。
+</Callout>
+
+## §2 「コミットして」で何が起きるか
+
+変更がまとまったら、`コミットして` と打つだけです。Claude は次を自動でこなします。
+
+- 変更内容を確認し、含めるファイルを<Term id="stage">ステージ</Term>する（`git add` 相当）
+- 何を変えたかを読み取り、**コミットメッセージの文面まで作る**
+- <Term id="commit">コミット</Term>として記録する
+
+<CodeBlock badge="例">
+  <Fragment slot="title">
+    <span class="mode-only for-terminal">zsh — claude</span>
+    <span class="mode-only for-desktop">セッションログ</span>
+  </Fragment>
+<span class="line mode-only for-terminal"><span class="prompt cy">&gt;</span> <span class="sx-str">"変更をコミットして"</span></span>
+<span class="line mode-only for-terminal"> </span>
+<span class="line mode-only for-terminal"><span class="sx-dim">  ⎿ </span><span class="sx-fn">run</span> <span class="sx-flag">git add src/auth.ts src/auth.test.ts</span></span>
+<span class="line mode-only for-terminal"><span class="sx-dim">  ⎿ </span><span class="sx-fn">run</span> <span class="sx-flag">git commit -m "fix: ログインの戻り値型を修正"</span></span>
+<span class="line mode-only for-terminal"><span class="sx-dim">  ⎿ </span><span class="sx-str">→ 1 file changed</span> <span class="sx-dim">(コミット完了)</span></span>
+<span class="line mode-only for-terminal"><span class="prompt cy">&gt;</span> <span class="caret" aria-hidden="true"></span></span>
+<span class="line mode-only for-desktop"><span class="prompt cy">あなた</span>  <span class="sx-str">変更をコミットして</span></span>
+<span class="line mode-only for-desktop"> </span>
+<span class="line mode-only for-desktop"><span class="prompt">Claude</span>  <span class="sx-fn">ステージ</span> <span class="sx-flag">src/auth.ts ほか1件</span></span>
+<span class="line mode-only for-desktop"><span class="sx-dim">        </span><span class="sx-fn">コミット</span> <span class="sx-str">fix: ログインの戻り値型を修正</span></span>
+<span class="line mode-only for-desktop"><span class="sx-dim">        差分ビューで内容を確認してください</span> <span class="caret" aria-hidden="true"></span></span>
+</CodeBlock>
+
+メッセージが好みと違えば、「もっと具体的に」「Conventional Commits で」と言えば書き直してくれます。
+
+## §3 差分とメッセージは、自分の目で
+
+便利でも、丸呑みは禁物です。コミットの前に、**何が含まれるか**と**メッセージが内容に合っているか**を必ず確認してください。
+
+<ModeBlock mode="terminal">
+ターミナル版では、ステージされた変更とメッセージ案がその場に表示されます。意図しないファイルが混ざっていないか、ログをそのまま読んでチェックします。
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+デスクトップ版では<Term id="diff-view">差分ビュー</Term>で変更前後を見比べられます。コミットに含める/含めないをファイル単位で選びながら、視覚的に承認できます。
+</ModeBlock>
+
+<Callout type="warn">
+  <b>関係ない変更が紛れ込んでいないか。</b> 自動ステージは便利な反面、意図しないファイルまで `git add` してしまうことがあります。コミット前のひと目で「このコミットに入るべきものだけか」を確かめる——これが<Term id="approval-flow">承認フロー</Term>の基本です。
+</Callout>
+
+## §4 良いコミット単位を意識する
+
+任せるときも、**コミットの粒度は人が方針を持つ**のがコツです。あれもこれもを一度に詰め込まず、意味のまとまりごとに小さく区切ります。
+
+- **機能ごとに 1 コミット** — 「バグ修正」と「リファクタ」は分ける。混ぜない。
+- **動く状態で区切る** — テストが通る区切りでコミットする。
+- **メッセージで「なぜ」が分かる** — 何をしたかだけでなく、理由が読み取れると後で助かる。
+
+依頼の仕方も効きます。「テスト追加とバグ修正を**別々のコミットに分けて**」と頼めば、Claude はそのとおり 2 つに割ってくれます。小さく区切る習慣は、第3部のサブエージェント運用（機能ごとに commit しながら実装する進め方）にもそのままつながります。
+
+<Callout>
+  迷ったら「小さく」。あとからまとめるのは簡単ですが、一塊のコミットを後から分けるのは手間です。区切りすぎて困ることは、まずありません。
+</Callout>
+
+## §5 「PR 作って」でブランチから提出まで
+
+仕上げは <Term id="pull-request">PR</Term> です。`PR 作って` と頼めば、Claude は一連の流れをまとめて担います。
+
+1. 作業用の<Term id="branch">ブランチ</Term>を切る（本流を直接いじらない）
+2. コミットをそのブランチへ載せ、リモートへ push する
+3. タイトルと説明を書いて PR を提出する
+
+<CodeBlock title="zsh — claude" badge="例">
+<span class="line"><span class="prompt cy">&gt;</span> <span class="sx-str">"この変更で PR を作って"</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">  ⎿ </span><span class="sx-fn">run</span> <span class="sx-flag">git switch -c fix/login-return-type</span></span>
+<span class="line"><span class="sx-dim">  ⎿ </span><span class="sx-fn">run</span> <span class="sx-flag">git push -u origin HEAD</span></span>
+<span class="line"><span class="sx-dim">  ⎿ </span><span class="sx-fn">run</span> <span class="sx-flag">gh pr create</span> <span class="sx-str">→ PR #42 opened</span></span>
+</CodeBlock>
+
+<Callout type="warn">
+  <b>本流への取り込みは、人の最終判断で。</b> PR の作成までは任せられますが、レビューしてマージするのはあなたの仕事です。<ModeText mode="terminal">ターミナル版では差分や `gh` の出力を読んで確認します。</ModeText><ModeText mode="desktop">デスクトップ版では<Term id="diff-view">差分ビュー</Term>で全体を見渡してから判断できます。</ModeText>
+</Callout>
+
+ここまでで、実装からコミット、PR までを一続きで任せられるようになりました。次章では、これらの設定や役割がしまわれている `.claude` フォルダの中身を解剖し、設定の全体像を「フォルダを見れば分かる」状態にします。

@@ -1,0 +1,89 @@
+---
+title: Claude Agent SDK で独自エージェント
+part: pro
+order: 3
+level: プロ
+summary: claude コマンドの内側にある「エンジン」を、自分のコードから直接呼ぶ。Claude Agent SDK で、ツール権限まで握った独自エージェントを組む入口を押さえます。
+readingTime: 7
+updated: 2026-06-27
+---
+
+ここまでは `claude` という入り口を通して Claude Code を使ってきました。この章で扱う <Term id="agent-sdk">Claude Agent SDK</Term> は、その入り口の **内側にあるエンジンを、自分のコードから直接呼ぶ** ための開発キットです。
+
+<Callout>
+  <b>これは CLI / デスクトップとは別レイヤの話です。</b> ターミナル版もデスクトップアプリ版も「人が対話する入り口」でした。Agent SDK は入り口を自作する側——あなたのプログラムの中にエージェントを埋め込む層です。だからこの章にモード差はありません。
+</Callout>
+
+## §1 SDK は「エンジンむき出し」
+
+`claude -p`(<Term id="headless">ヘッドレス</Term>実行)が「組み立て済みの 1 機能を呼ぶ」のに対し、Agent SDK は **エンジンそのものを部品として渡してくれる** 形です。自律ループ・ツール群・<Term id="tool-permission">ツール権限</Term>の制御を、自分のアプリのロジックに織り込めます。
+
+提供言語は **TypeScript と Python** の 2 つ。用途はたとえば次のようなものです。
+
+- **社内ツールに組み込む** — Slack ボットやレビュー用 Web アプリの中でエージェントを走らせる
+- **オーケストレーションを自作する** — どのサブタスクをどの順で回すかを、自分のコードで指揮する
+- **権限を厳密に絞る** — 使わせるツールを限定し、安全に自動化する
+
+## §2 まずインストール
+
+TypeScript なら npm、Python なら pip で入れます。最小限はこれだけです。
+
+<CodeBlock title="Agent SDK のインストール" badge="セットアップ">
+<span class="line"><span class="sx-com"># TypeScript / Node.js</span></span>
+<span class="line"><span class="prompt">$</span> npm install <span class="sx-key">@anthropic-ai/claude-agent-sdk</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-com"># Python</span></span>
+<span class="line"><span class="prompt">$</span> pip install <span class="sx-key">claude-agent-sdk</span></span>
+</CodeBlock>
+
+<Callout type="warn">
+  <b>パッケージ名・API は版で変わります。</b> 正確な名前・最新のシグネチャは必ず公式ドキュメント（Agent SDK overview）で確認してください。この章はあくまで「入口の地図」です。
+</Callout>
+
+## §3 最小サンプル(TypeScript)
+
+いちばん小さい使い方は、プロンプトを 1 つ渡して結果を受け取るだけです。`query()` にプロンプトを渡し、返ってくるメッセージを順に読みます。
+
+<CodeBlock title="hello-agent.ts" badge="TS">
+<span class="line"><span class="sx-key">import</span> &#123; query &#125; <span class="sx-key">from</span> <span class="sx-str">"@anthropic-ai/claude-agent-sdk"</span>;</span>
+<span class="line"> </span>
+<span class="line"><span class="sx-key">for</span> <span class="sx-key">await</span> (<span class="sx-key">const</span> msg <span class="sx-key">of</span> query(&#123;</span>
+<span class="line">  prompt: <span class="sx-str">"src のテストを実行して、落ちていたら直して"</span>,</span>
+<span class="line">&#125;)) &#123;</span>
+<span class="line">  <span class="sx-fn">console</span>.log(msg);</span>
+<span class="line">&#125;</span>
+</CodeBlock>
+
+`query()` は応答を **少しずつ流す**(ストリーミング)ため、`for await` で受けます。`claude -p` でやっていたことを、そのままコードの中に持ち込んだ形です。
+
+## §4 ツール権限を握る
+
+SDK の核心は、**そのエージェントに何を使わせるかを呼び出し側が決められる** 点です。読み取りだけ許す、特定コマンドだけ通す——といった<Term id="tool-permission">ツール権限</Term>をオプションで指定できます。
+
+<CodeBlock title="権限を絞って呼ぶ" badge="TS">
+<span class="line"><span class="sx-key">const</span> result = query(&#123;</span>
+<span class="line">  prompt: <span class="sx-str">"この PR の差分をレビューして"</span>,</span>
+<span class="line">  options: &#123;</span>
+<span class="line">    <span class="sx-com">// 使わせるツールを明示的に限定する</span></span>
+<span class="line">    allowedTools: [<span class="sx-str">"Read"</span>, <span class="sx-str">"Grep"</span>, <span class="sx-str">"Glob"</span>],</span>
+<span class="line">  &#125;,</span>
+<span class="line">&#125;);</span>
+</CodeBlock>
+
+こうして編集や実行を渡さず「読むだけ」のレビュー役を作る、というのが SDK らしい使い方です。第3部で学んだ<Term id="least-privilege">最小権限</Term>の考え方が、そのままコードのオプションになります。
+
+## §5 SDK が土台になっている
+
+実はこの SDK は、特別な裏口ではありません。公式の <Term id="github-actions">GitHub Actions</Term> 連携(<Term id="claude-code-action">claude-code-action</Term>)も、**この Agent SDK の上に作られています**。前章で CI に組み込んだあの仕組みの正体が、ここにあるわけです。
+
+<Callout>
+  <b>使い分けの目安。</b> 決まった処理を 1 回流すだけなら <code class="inline">claude -p</code> で十分。条件分岐・状態管理・他システム連携まで自作したくなったら SDK、と段階で考えると迷いません。
+</Callout>
+
+## §6 課金とこの先
+
+<Callout type="warn">
+  <b>SDK 経由の利用は別枠の課金です。</b> Agent SDK・<code class="inline">claude -p</code>・GitHub Actions 経由の実行は、通常のサブスク枠とは別の <Term id="monthly-credit">月次クレジット</Term> を消費します(2026/6/15〜)。自作エージェントは気づくと走り続けるため、コスト管理は次章のガバナンスで必ず押さえてください。
+</Callout>
+
+SDK は奥が深く、サブエージェントの定義・<Term id="mcp">MCP</Term> サーバーの接続・カスタムツールの追加まで、ここでは触れきれません。本章は「`claude` の内側を自分のコードから呼べる」という入口の提示に留めます。実際に組むときは、TypeScript / Python それぞれの **公式 Agent SDK ドキュメント** を一次情報として参照してください。

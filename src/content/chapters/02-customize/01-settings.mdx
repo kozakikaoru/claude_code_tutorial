@@ -1,0 +1,124 @@
+---
+title: settings.json と権限設定
+part: customize
+order: 2
+level: 初中級
+summary: 「どのファイルを読み、どのコマンドを実行してよいか」を allow / deny / ask で線引きします。設定ファイルの 3 階層を理解し、機密ファイルを deny で守るところまでを身につけます。
+readingTime: 8
+updated: 2026-06-27
+---
+
+前章で <Term id="claude-md">CLAUDE.md</Term> に「やり方」を教えました。この章で決めるのは「**やってよいことの範囲**」です。Claude にどこまで自動で任せるかを、<Term id="settings-json">settings.json</Term> という設定ファイルで線引きします。
+
+<Callout>
+  CLAUDE.md が「どう振る舞うか」なら、settings.json は「**何をしてよいか**」。新卒部下に渡す「業務マニュアル」と「アクセス権限」の違いだと思ってください。
+</Callout>
+
+## §1 なぜ権限設定が要るのか
+
+Claude は放っておけばファイルを読み、コマンドを実行します。便利な反面、`.env` のような機密ファイルを読んだり、消したくないものを消したりするリスクもあります。
+
+そこで <Term id="permissions">権限設定</Term> の出番です。「読んでよいファイル」「実行してよいコマンド」をあらかじめ決めておけば、Claude はその枠内だけで動きます。<Term id="least-privilege">必要最小限だけ許可する</Term>のが安全運用の基本です。
+
+<Callout type="warn">
+  この設定は <b>守りの装置</b> です。許可を広げすぎれば事故のリスクが上がり、絞りすぎれば毎回確認が出て煩わしい。ちょうどいい線を探るのがこの章のゴールです。
+</Callout>
+
+## §2 3 つのルール — allow / deny / ask
+
+権限は <Term id="allow-deny-ask">allow / deny / ask</Term> の 3 種で指定します。覚えるのはこれだけです。
+
+| ルール | 意味 | 向いている対象 |
+|---|---|---|
+| `allow` | 自動で許可（確認なし） | 安全な読み取り・テスト実行など |
+| `deny` | 完全に遮断（実行させない） | 機密ファイル・破壊的コマンド |
+| `ask` | 実行前に毎回確認 | 影響が大きく、人が判断したい操作 |
+
+迷ったら `ask` から始め、安全だと分かったものを `allow` に、危険なものを `deny` に振り分けていくと過不足なく整います。
+
+## §3 書き方の基本
+
+設定は JSON で書きます。`permissions` の下に、ルールごとの配列を並べる形です。
+
+<CodeBlock title=".claude/settings.json" badge="設定">
+<span class="line"><span class="sx-key">&#123;</span></span>
+<span class="line">  <span class="sx-str">"permissions"</span>: <span class="sx-key">&#123;</span></span>
+<span class="line">    <span class="sx-str">"allow"</span>: [<span class="sx-str">"Read"</span>, <span class="sx-str">"Bash(npm test)"</span>],</span>
+<span class="line">    <span class="sx-str">"ask"</span>:   [<span class="sx-str">"Bash(git push:&#42;)"</span>],</span>
+<span class="line">    <span class="sx-str">"deny"</span>:  [<span class="sx-str">"Read(./.env)"</span>, <span class="sx-str">"Bash(rm -rf:&#42;)"</span>]</span>
+<span class="line">  <span class="sx-key">&#125;</span></span>
+<span class="line"><span class="sx-key">&#125;</span></span>
+</CodeBlock>
+
+`ツール名` だけ書けばそのツール全体に、`ツール名(対象)` まで書けば対象を絞って効きます。上の例なら「読み取りは許可、`npm test` は自動実行、`git push` は確認、`.env` の読み取りと `rm -rf` は遮断」という意味になります。
+
+## §4 機密ファイルを deny で守る
+
+いちばん効くのが、`.env` や鍵ファイルを `deny` に入れることです。これを書いておけば、Claude はそのファイルを読もうとしません。
+
+<CodeBlock title=".claude/settings.json — deny の例" badge="設定">
+<span class="line">  <span class="sx-str">"deny"</span>: [</span>
+<span class="line">    <span class="sx-str">"Read(./.env)"</span>,</span>
+<span class="line">    <span class="sx-str">"Read(./secrets/&#42;&#42;)"</span>,</span>
+<span class="line">    <span class="sx-str">"Bash(rm -rf:&#42;)"</span></span>
+<span class="line">  ]</span>
+</CodeBlock>
+
+<Callout>
+  <b>deny は allow より強い。</b> 同じ対象が両方に書かれていても、遮断が優先されます。「うっかり許可してしまった機密」も deny の一行で確実に止められます。
+</Callout>
+
+## §5 設定ファイルの 3 階層
+
+settings.json は置き場所によって効く範囲が変わります。3 つの階層を使い分けます。
+
+| 置き場所 | 範囲 | git 管理 |
+|---|---|---|
+| `~/.claude/settings.json` | 個人の全プロジェクト共通 | しない |
+| `.claude/settings.json` | そのプロジェクト（チーム共有） | **する** |
+| `.claude/settings.local.json` | そのプロジェクトの自分だけ | しない（gitignore） |
+
+下の階層ほど優先されます。チーム共通のルールは `.claude/settings.json` に書いて<Term id="repository">リポジトリ</Term>へコミットし、自分だけの一時的な許可は `.local.json` に置く——これが基本の分け方です。
+
+## §6 どこに何を書くか
+
+階層ごとに「向いている内容」があります。役割を意識すると迷いません。
+
+- **`~/.claude/settings.json`（個人共通）** — どのプロジェクトでも使う自分の好み。例: `npm test` は常に許可。
+- **`.claude/settings.json`（チーム共有）** — チーム全員に効かせたい安全ルール。例: 機密ファイルの `deny`。git でコミットして共有します。
+- **`.claude/settings.local.json`（個人ローカル）** — 自分だけ・一時的な許可。gitignore 対象なので、他人に影響しません。
+
+<Callout type="warn">
+  チーム共有の <code class="inline">.claude/settings.json</code> に個人的な許可を書くと、全員に効いてしまいます。「自分だけ」は必ず <code class="inline">.local.json</code> へ。逆に守りの <code class="inline">deny</code> は共有側に書いて全員を守るのが定石です。
+</Callout>
+
+## §7 保存したらすぐ効く
+
+設定を変えるたびに再起動する必要はありません。settings.json の多くの項目は <Term id="hot-reload">ホットリロード</Term> され、保存した瞬間に反映されます（permissions も対象です）。
+
+つまり「`ask` にして様子を見て、安全なら `allow` に変える」といった調整を、セッションを止めずに試せます。少しずつ枠を広げながら、自分のちょうどいい設定に育てていってください。
+
+## §8 モード別の操作
+
+<ModeBlock mode="terminal">
+ターミナル版では <Term id="slash-command">スラッシュコマンド</Term> の `/permissions` で許可状況を確認・編集できます。細かい指定はファイルを直接開いて書くのが確実です。
+
+<CodeBlock title="zsh — 権限を確認する" badge="CLI">
+<span class="line"><span class="sx-com"># セッション中に権限設定を開く</span></span>
+<span class="line"><span class="prompt cy">&gt;</span> <span class="sx-key">/permissions</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">  allow / deny / ask の一覧が表示されます…</span></span>
+</CodeBlock>
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+デスクトップアプリ版では、権限設定を **GUI の設定画面** から管理できます。許可・遮断・確認の切り替えや、機密ファイルの遮断も画面の操作で行えます。
+
+細かく詰めたいときは、補助的に `.claude/settings.json` を直接編集することもできます。中身は両モードで同じファイルなので、GUI で作った設定もそのままチームへ共有できます。
+</ModeBlock>
+
+<Callout>
+  入り口は違っても、効くのは同じ <code class="inline">settings.json</code> です。土台が 1 つなので、ターミナルで書いた設定がデスクトップでも効きますし、その逆も同じです。
+</Callout>
+
+次章では、この設定とルールを土台に、複数ファイルの編集から Git のコミット・PR までを Claude に任せていきます。

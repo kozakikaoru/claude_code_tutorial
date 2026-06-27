@@ -1,0 +1,104 @@
+---
+title: カスタムスラッシュコマンド & スキル（SKILL.md）
+part: subagents
+order: 8
+level: 中級
+summary: 毎回打ち込む定型の指示や、何段にもわたる手順を「ひとつの入口」にまとめます。カスタムスラッシュコマンドと SKILL.md で、よく使うワークフローを再利用可能な部品に変えましょう。
+readingTime: 7
+updated: 2026-06-27
+---
+
+サブエージェントは「働く担当者」でした。本章で扱うのは、その担当者たちを呼び出す **入口** の作り方です。毎回同じ指示を打ち込んでいるなら、それは <Term id="custom-slash-command">カスタムスラッシュコマンド</Term> や <Term id="skill-md">SKILL.md</Term> にまとめる合図。多段の <Term id="workflow">ワークフロー</Term> を `/名前` の一発で呼べるようにします。
+
+<Callout>
+  これは前章までの仕上げです。単一責務のサブエージェントが「実行ユニット」なら、コマンドとスキルはそれらを束ねる <Term id="orchestration">オーケストレーション</Term> の入口にあたります。
+</Callout>
+
+## §1 まず「カスタムスラッシュコマンド」から
+
+`/help` や `/clear` のような組み込みの <Term id="slash-command">スラッシュコマンド</Term> は、自分でも追加できます。実体は **Markdown ファイル 1 枚**。本文がそのままプロンプトのテンプレートになり、`/名前` で呼び出すと展開されて実行されます。
+
+「コミット前のレビュー手順」「リリースノートの作成」など、**毎回ほぼ同じ文面で頼んでいる指示** が最初の候補です。1 枚書いておけば、長いプロンプトを打ち直す手間が消えます。
+
+## §2 置き場所は 2 か所
+
+ファイルの置き場所で、使える範囲が変わります。<Term id="dot-claude">.claude フォルダ</Term> に置けばそのプロジェクト限定、ホーム配下に置けば全プロジェクト共通です。
+
+| 置き場所 | 範囲 | 共有 |
+|---|---|---|
+| `.claude/commands/<名前>.md` | そのプロジェクト | git に乗せてチーム共有 |
+| `~/.claude/commands/<名前>.md` | 全プロジェクト | 自分専用 |
+
+ファイル名がそのままコマンド名になります。`review.md` なら `/review` です。サブエージェントの配置（`.claude/agents/`）と同じ二段構えだと覚えると楽です。
+
+## §3 最小のコマンドを書く
+
+中身を見てみましょう。フロントマターで説明文と許可ツール・<Term id="models">モデル</Term> を宣言し、本文にやってほしいことを書きます。フロントマターは省略でき、その場合は本文だけのテンプレートになります。
+
+<CodeBlock title=".claude/commands/review.md" badge="Markdown">
+<span class="line"><span class="sx-key">---</span></span>
+<span class="line"><span class="sx-key">description</span>: <span class="sx-str">変更差分をレビューして指摘をまとめる</span></span>
+<span class="line"><span class="sx-key">allowed-tools</span>: <span class="sx-str">Read, Grep, Bash(git diff:*)</span></span>
+<span class="line"><span class="sx-key">model</span>: <span class="sx-str">sonnet</span></span>
+<span class="line"><span class="sx-key">---</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-com"># 直前の変更を確認し、バグ・規約違反・抜けを</span></span>
+<span class="line"><span class="sx-com"># 重要度つきで箇条書きにしてください。</span></span>
+</CodeBlock>
+
+これで `/review` と打つだけで、毎回この手順が走ります。
+
+## §4 description は呼ばれ方を決める
+
+コマンドの <Term id="description">description</Term> は、サブエージェントのときと同じ役割を持ちます。Claude がこのコマンドを **いつ使うべきか** を判断する材料になるからです。
+
+「何を・いつ・何のために」を具体的に書くほど、狙った場面で候補に挙がります。逆に「便利なコマンド」のような一般語だけだと、せっかく作っても出番が来ません。前章の description の三要素（トリガー語・対象・場面）が、ここでもそのまま効きます。
+
+## §5 引数を受け取る
+
+コマンドに値を渡したいときは、本文に **プレースホルダ** を書きます。`$ARGUMENTS` は渡した文字列ぜんぶ、`$1` `$2` は位置ごとの引数に展開されます。
+
+<CodeBlock title=".claude/commands/fix-issue.md" badge="Markdown">
+<span class="line"><span class="sx-com"># Issue #$1 を修正してください。</span></span>
+<span class="line"><span class="sx-com"># 関連するテストも更新すること。</span></span>
+</CodeBlock>
+
+<CodeBlock title="呼び出し例" badge="CLI">
+<span class="line"><span class="prompt cy">&gt;</span> <span class="sx-key">/fix-issue</span> <span class="sx-flag">123</span></span>
+</CodeBlock>
+
+これで `$1` が `123` に置き換わって実行されます。汎用的な手順を 1 枚で使い回せるようになります。
+
+## §6 スキル（SKILL.md）という発展形
+
+コマンドよりもう一段大きい単位が **スキル** です。実体は <Term id="skill-md">SKILL.md</Term> で、`.claude/skills/<名前>/SKILL.md` に置きます。YAML で `name` と `description` を書き、本文に手順をまとめる点はコマンドと似ています。
+
+違いは規模感です。コマンドが「ひとつの定型プロンプト」なら、スキルは **補助ファイルや複数ステップを抱えた、まとまった作業一式** を想定します。同じフォルダにスクリプトやテンプレートを同梱できるのが強みです。
+
+<Callout>
+  まずはコマンドで十分。<b>1 枚に収まらない・補助ファイルを束ねたい</b>と感じたら SKILL.md に格上げする、という順で考えると迷いません。
+</Callout>
+
+## §7 スキルとコマンドの統合について
+
+2026 年の更新で、**スラッシュコマンドとスキルの扱いが統合され**、どちらも `/名前` で呼び出せるようになったと整理されています。旧来の `.claude/commands/` 形式もそのまま有効です。
+
+<Callout type="warn">
+  <b>この統合まわりは仕様の変化が速い領域です。</b>正確な置き場所・呼び出し方・フロントマターの項目は、お使いのバージョンの公式ドキュメント（<code class="inline">/help</code> や What's new）で最新版を必ず確認してください。本章の記述は 2026-06 時点のスナップショットです。
+</Callout>
+
+## §8 モードごとの呼び出し方
+
+作ったコマンドやスキルは、どちらのモードからでも同じように起動できます。入口が違うだけで、走る中身は同一です。
+
+<ModeBlock mode="terminal">
+入力欄で `/` を打つと候補が一覧表示され、自作のコマンドもそこに並びます。`/review` のように名前を打って実行します。引数はコマンド名のうしろに続けます。
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+コマンドパレットやメニューから、組み込みコマンドと同じ並びで自作のものを選んで実行できます。`/` 入力での呼び出しも使えます。
+</ModeBlock>
+
+<Callout>
+  <b>単一責務は崩さない。</b>コマンドやスキルで手順を束ねても、実際の作業は <Term id="single-responsibility">単一責務</Term> の <Term id="subagent">サブエージェント</Term> に任せる——この役割分担が、再利用しやすく壊れにくい設計の勘どころです。次章では、行動の前後に処理を差し込む「フック」に進みます。
+</Callout>

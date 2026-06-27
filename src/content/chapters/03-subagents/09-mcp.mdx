@@ -1,0 +1,107 @@
+---
+title: MCP 入門（GitHub / Slack / DB を繋ぐ）
+part: subagents
+order: 10
+level: 中級
+summary: Claude に外部サービスを操作させる仕組みが MCP です。GitHub・Slack・データベースなどを Claude の機能のように繋ぎ、issue から PR まで一気通貫で任せられるようにします。「CLI は人が操作、MCP は AI に操作させる」の違いから入ります。
+readingTime: 7
+updated: 2026-06-27
+---
+
+ここまでのサブエージェントやフックは、Claude を**内側から**鍛える話でした。本章は逆向き——Claude を**外の世界に繋ぐ**話です。鍵になるのが <Term id="mcp">MCP</Term>（Model Context Protocol）。これを使うと、GitHub・Slack・データベースといった外部サービスを、Claude が自分の機能のように呼び出せるようになります。
+
+<Callout>
+  この章はモードで入り口が分かれます。<b>ターミナル版は設定ファイル中心</b>、<b>デスクトップ版は GUI でポチッと接続</b>。仕組みは同じなので、考え方を掴んでから自分の入り口を見てください。
+</Callout>
+
+## §1 CLI と MCP の違い
+
+まず一番大事な切り分けから。似て見える二つを、はっきり分けて捉えてください。
+
+- **CLI** = **人が** ターミナルから外部ツールを操作する道具。`git push` も `gh pr create` も、手を動かすのはあなたです。
+- **MCP** = **AI に** 外部ツールを操作させる仕組み。「PR を作って」と言えば、Claude が自分で GitHub を叩きます。
+
+<Callout>
+  <b>CLI は人の手、MCP は AI の手。</b> あなたが叩いていたコマンドを、Claude 自身が叩けるようにする——それが MCP の正体です。
+</Callout>
+
+## §2 クライアントとサーバー
+
+MCP は二者の組み合わせで動きます。役割を分けて覚えると、設定の話がすっと入ります。
+
+- <Term id="mcp-server">MCP サーバー</Term> = 外部サービスへの操作を提供する側。GitHub・Slack・PostgreSQL などがサーバーになります。
+- <Term id="mcp-client">MCP クライアント</Term> = サーバーに繋いでそのツールを使う側。**Claude Code がこのクライアント**です。
+
+つまりあなたがやるのは、Claude Code（クライアント）に「このサーバーに繋ぎなさい」と教えること。それだけで、サーバーが持つ機能が Claude の手札に加わります。
+
+## §3 何ができるのか
+
+繋ぐサーバーによって、Claude の手札が増えます。公式が挙げる代表例を見てください。
+
+| 繋ぐ先 | 任せられること |
+|---|---|
+| GitHub / JIRA | issue の内容を読んで実装し、PR まで作る |
+| Sentry | エラーの発生状況を確認する |
+| PostgreSQL | DB に問い合わせてデータを確認する |
+| Figma | デザインを読み取って画面に反映する |
+| Gmail | 文面を下書きする |
+
+ポイントは、**調べる・読む・書くが一つの会話で繋がる**こと。「この issue を直して」から PR 提出までが地続きになります。
+
+## §4 接続する（ターミナル / デスクトップ）
+
+ここがモードで分かれる中心です。やることは「サーバーを 1 つ登録する」だけ。
+
+<ModeBlock mode="terminal">
+ターミナル版は `claude mcp` コマンドで管理します。追加・一覧・削除がそのまま揃っています。
+
+<CodeBlock title="zsh — claude mcp" badge="CLI">
+<span class="line"><span class="sx-com"># サーバーを追加（例: GitHub）</span></span>
+<span class="line"><span class="prompt">$</span> claude mcp <span class="sx-key">add</span> <span class="sx-flag">github</span> -- <span class="sx-flag">npx -y @modelcontextprotocol/server-github</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-com"># 登録済みを一覧 / 削除</span></span>
+<span class="line"><span class="prompt">$</span> claude mcp <span class="sx-key">list</span></span>
+<span class="line"><span class="prompt">$</span> claude mcp <span class="sx-key">remove</span> <span class="sx-flag">github</span></span>
+</CodeBlock>
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+デスクトップ版では MCP 接続が**一級市民**です。設定画面から繋ぎたいサービスを選び、画面の案内に沿って接続します。
+
+GitHub や Slack など多くのサービスは **OAuth でのログイン接続**に対応していて、トークンを手で貼らずにボタン操作だけで繋がります。接続済みのサーバーは設定画面に一覧表示され、オン/オフや削除もその場でできます。
+</ModeBlock>
+
+<Callout>
+  どちらの入り口で繋いでも、繋いだ後の使い方は同じ。会話で「PR を作って」と頼むだけです。
+</Callout>
+
+## §5 スコープ ── どこまで効かせるか
+
+サーバーを登録するとき、「その設定をどの範囲で効かせるか」を選びます。これを**スコープ**と呼びます。<Term id="settings-json">settings.json</Term> の 3 階層と同じ考え方です。
+
+| スコープ | 効く範囲 | 向いている用途 |
+|---|---|---|
+| local | 自分のこのマシンだけ | 個人の検証・お試し |
+| project | リポジトリで共有（git 管理） | チーム全員で使うサーバー |
+| user | 自分の全プロジェクト | 個人的に常用するサーバー |
+
+チームで揃えたいなら project、自分専用なら user。まずは local で試してから広げると安全です。
+
+## §6 トランスポート ── 繋ぎ方の種類
+
+サーバーとの**通信方式**を <Term id="transport">トランスポート</Term> と呼びます。サーバーごとに決まっているので、最初は「そういう種類がある」と知っておけば十分です。
+
+- **stdio** — ローカルで直結する方式。手元で動かすサーバー向け。
+- **SSE / HTTP** — ネットワーク越しに繋ぐ方式。クラウド上のサーバー向け。
+
+§4 の GitHub の例は、ローカルでコマンドを起動するので stdio です。リモートのサービスに繋ぐときは SSE / HTTP になります。
+
+## §7 安全に繋ぐ
+
+MCP は外部サービスに手が届くぶん、権限の管理が効いてきます。第3部で学んだ原則をそのまま当てはめてください。
+
+<Callout type="warn">
+  <b>必要なサーバーだけを、必要な範囲で繋ぐ。</b> <Term id="least-privilege">最小権限</Term>の発想です。とりあえず全部繋ぐ、書き込み権限まで渡す——は事故のもと。DB なら読み取り専用の接続を選ぶ、本番には繋がない、といった線引きを最初に決めましょう。
+</Callout>
+
+書き込みや破壊的な操作を伴うサーバーは、<Term id="permissions">permissions</Term> で `ask`（都度確認）にしておくと安心です。これで第3部は一区切り。最終章で、ここまでのサブエージェント運用を点検するチェックリストに進みます。

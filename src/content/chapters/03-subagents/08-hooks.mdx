@@ -1,0 +1,133 @@
+---
+title: フック入門 — 編集後フォーマットと危険コマンド遮断
+part: subagents
+order: 9
+level: 中級
+summary: Claude の行動の節目に、自分のスクリプトを自動で差し込む仕組みがフックです。編集後の自動整形と、危険コマンドの遮断という二つの定番を、実際の設定で作ります。
+readingTime: 8
+updated: 2026-06-27
+---
+
+ここまでは「Claude にどう動いてもらうか」を、プロンプトやサブエージェントで設計してきました。フックはその外側——**Claude の行動の前後に、あなたのスクリプトを機械的に割り込ませる**仕組みです。お願いではなく、確実に毎回走る歯止めを作れます。
+
+<Callout>
+  <b>一言でいうと、<Term id="hook">フック</Term> は「Git の pre-commit の Claude 版」です。</b> コミット前に lint を強制するあのフックと同じ発想で、Claude のツール実行の前後などに自前の処理を差し込みます。AI に「整形してね」と頼むのではなく、**仕組みとして必ず実行する**のがポイントです。
+</Callout>
+
+## §1 フックとは何か
+
+<Term id="hook">フック</Term> は、Claude の動作のライフサイクルの**特定の節目**で自動実行される処理です。「ファイルを編集した直後」「コマンドを実行する直前」「セッション開始時」といったタイミングに、シェルコマンドなどを紐づけられます。
+
+プロンプトでの指示は AI の判断に委ねられるため、たまに忘れられます。フックは判断を挟まず**毎回確実に走る**のが違いです。だからこそ、整形の徹底や危険操作の遮断といった「ここは絶対に外せない」処理に向きます。
+
+<Callout>
+  本章では最も使う二つ——**編集後の自動フォーマット**と**危険コマンドの遮断**——に絞って手を動かします。これだけで、フックの「前」と「後」両方の型が身につきます。
+</Callout>
+
+## §2 二つの発火タイミング
+
+フックには多くのイベントがありますが、まず押さえるのはツール実行に紐づく二つです。
+
+- <Term id="pre-tooluse">PreToolUse</Term> — ツールが走る**直前**。「この操作を実行してよいか」を事前チェックし、危険なら止められます。
+- <Term id="post-tooluse">PostToolUse</Term> — ツールが走った**直後**。編集後に整形をかけるなど、後始末に使います。
+
+<Callout>
+  この二つだけ覚えれば十分はじめられます。セッション開始時に走る `SessionStart`、応答完了時の `Stop` など他のイベントもありますが、2026 年時点で 30 種を超えるため、必要になってから足していけば大丈夫です。
+</Callout>
+
+## §3 どのツールに効かせるか — matcher
+
+イベントを選んだら、次は**どのツールに反応させるか**を <Term id="matcher">matcher</Term> で絞ります。フックを無差別に全ツールへ効かせると無駄が多く、事故のもとだからです。
+
+- `Edit|Write` — ファイル編集系だけに効かせる（整形フックの定番）
+- `Bash` — シェルコマンド実行だけに効かせる（危険コマンド遮断の定番）
+
+<Callout>
+  matcher は「このフックは編集のときだけ」「これはコマンドのときだけ」と**対象を限定する条件**だと考えてください。後で出てくる設定では、整形フックに `Edit|Write`、遮断フックに `Bash` を指定します。
+</Callout>
+
+## §4 どこに書くか
+
+フックは <Term id="settings-json">settings.json</Term> に書きます。置き場所は用途で選びます。
+
+- `.claude/settings.json` — チーム共有（git 管理。全員に効かせたいルール向き）
+- `.claude/settings.local.json` — 自分だけ（gitignore。手元で試すとき向き）
+
+<CodeBlock title="settings.json — 構造の骨格" badge="設定">
+<span class="line"><span class="sx-key">"hooks"</span>: &#123;</span>
+<span class="line">  <span class="sx-key">"PostToolUse"</span>: [&#123;</span>
+<span class="line">    <span class="sx-key">"matcher"</span>: <span class="sx-str">"Edit|Write"</span>,</span>
+<span class="line">    <span class="sx-key">"hooks"</span>: [&#123; <span class="sx-key">"type"</span>: <span class="sx-str">"command"</span>, <span class="sx-key">"command"</span>: <span class="sx-str">"..."</span> &#125;]</span>
+<span class="line">  &#125;]</span>
+<span class="line">&#125;</span>
+</CodeBlock>
+
+<Callout>
+  設定は <Term id="hot-reload">ホットリロード</Term> されるので、保存すればその場で効きます。<Term id="dot-claude">.claude フォルダ</Term> にまとまる点も、これまでの設定と同じです。
+</Callout>
+
+## §5 定番1 — 編集後に自動フォーマット
+
+最初の実用例です。Claude がファイルを編集するたびに <Term id="post-tooluse">PostToolUse</Term> で整形ツールを走らせます。整形を「お願い」しなくても、毎回そろうようになります。
+
+<CodeBlock title=".claude/settings.json — 編集後 prettier" badge="設定">
+<span class="line"><span class="sx-key">"hooks"</span>: &#123;</span>
+<span class="line">  <span class="sx-key">"PostToolUse"</span>: [&#123;</span>
+<span class="line">    <span class="sx-key">"matcher"</span>: <span class="sx-str">"Edit|Write"</span>,</span>
+<span class="line">    <span class="sx-key">"hooks"</span>: [&#123;</span>
+<span class="line">      <span class="sx-key">"type"</span>: <span class="sx-str">"command"</span>,</span>
+<span class="line">      <span class="sx-key">"command"</span>: <span class="sx-str">"npx prettier --write \"$CLAUDE_FILE_PATHS\""</span></span>
+<span class="line">    &#125;]</span>
+<span class="line">  &#125;]</span>
+<span class="line">&#125;</span>
+</CodeBlock>
+
+<Callout>
+  <b>編集された後に整える、が肝です。</b> matcher の `Edit|Write` で編集系だけに反応し、編集したファイルへ prettier をかけます。整形漏れによる差分のノイズが消え、レビューが読みやすくなります。
+</Callout>
+
+## §6 定番2 — 危険コマンドを遮断する
+
+次は「前」の型です。<Term id="pre-tooluse">PreToolUse</Term> でコマンドを実行**前**に検査し、`rm -rf` のような取り返しのつかない操作を止めます。これが pre-commit の Claude 版という比喩がいちばん効く場面です。
+
+<CodeBlock title=".claude/settings.json — rm -rf を遮断" badge="設定">
+<span class="line"><span class="sx-key">"hooks"</span>: &#123;</span>
+<span class="line">  <span class="sx-key">"PreToolUse"</span>: [&#123;</span>
+<span class="line">    <span class="sx-key">"matcher"</span>: <span class="sx-str">"Bash"</span>,</span>
+<span class="line">    <span class="sx-key">"hooks"</span>: [&#123;</span>
+<span class="line">      <span class="sx-key">"type"</span>: <span class="sx-str">"command"</span>,</span>
+<span class="line">      <span class="sx-key">"command"</span>: <span class="sx-str">"case \"$CLAUDE_TOOL_INPUT\" in &#42;'rm -rf'&#42;) echo '危険コマンドを遮断しました' >&2; exit 2 ;; esac"</span></span>
+<span class="line">    &#125;]</span>
+<span class="line">  &#125;]</span>
+<span class="line">&#125;</span>
+</CodeBlock>
+
+<Callout type="warn">
+  matcher を `Bash` にして、コマンド実行の直前だけ検査します。危険なパターンを見つけたら <Term id="exit-2">exit 2</Term> で止める——これが遮断の合図です。次の §7 で詳しく見ます。
+</Callout>
+
+## §7 合否を伝える終了コード
+
+フックが処理をどう扱うかは、スクリプトの**終了コード**で決まります。ここがフックの心臓部です。
+
+- `0` … 成功。Claude はそのまま処理を続けます。
+- <Term id="exit-2">2</Term> … **ブロッキング**。処理を止め、`stderr` に書いた内容を Claude に渡します。
+
+<Callout>
+  §6 で `exit 2` を使ったのはこのためです。`echo ... >&2` で理由を伝え、`exit 2` で実行を止める。Claude はその理由を読んで動作を改めます。lint 失敗時にコミットを止める、なども同じ型で書けます。
+</Callout>
+
+## §8 設定済みフックを確認する
+
+最後に運用の小技です。いま何のフックが効いているかは、`/hooks` という <Term id="slash-command">スラッシュコマンド</Term> で一覧できます。
+
+<CodeBlock title="設定中のフックを確認" badge="例">
+<span class="line"><span class="prompt cy">&gt;</span> <span class="sx-key">/hooks</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">  PostToolUse  </span><span class="sx-flag">Edit|Write</span><span class="sx-dim">  → prettier --write</span></span>
+<span class="line"><span class="sx-dim">  PreToolUse   </span><span class="sx-flag">Bash</span><span class="sx-dim">        → 危険コマンド遮断</span></span>
+</CodeBlock>
+
+<Callout>
+  <b>フックは「頼む」ではなく「仕込む」安全装置です。</b> 整形を毎回そろえ、危険操作を機械的に止める——この二つが書ければ、フックの基礎は越えています。次章では外部ツールと Claude をつなぐ <Term id="mcp">MCP</Term> に進み、できることの幅をさらに広げます。
+</Callout>

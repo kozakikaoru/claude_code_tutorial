@@ -1,0 +1,191 @@
+---
+title: 公式「計画・生成・評価」3分離パターン
+part: subagents
+order: 5
+level: 中級
+summary: 1つのエージェントに計画・実装・評価を全部させると品質が落ちる——その壁を越える公式の関心分離パターン。役割を3つに割り、ファイルで疎結合に繋ぎ、独立した評価者に懐疑的に見させる。本サイト最大の見どころです。
+readingTime: 12
+updated: 2026-06-27
+---
+
+ここからが、第3部の——いえ、本サイト全体の **目玉** です。サブエージェントの作り方（3-3）と呼ばれ方（3-4）を押さえたら、次は **複数のサブエージェントを役割で分けて組み合わせる** 段階に入ります。Anthropic 公式が推す <Term id="plan-generate-evaluate">計画・生成・評価</Term> の3分離パターンを、動機から実装、コスト判断まで通しで身につけます。
+
+<Callout>
+  この章は内容が濃いぶん、ステップを細かく刻んでいます。1画面ずつ「なぜそうするのか」を確かめながら、ゆっくり進んでください。前提として 3-3（サブエージェントの作り方）まで読んでいることを想定します。
+</Callout>
+
+## §1 なぜ1人に全部やらせると崩れるのか
+
+まず動機から。1つのエージェントに「計画して、実装して、自分で評価して」と長時間まかせると、品質が落ちます。理由は単純で、**計画・実装・評価という性質の違う仕事が、同じ頭の中で干渉する** からです。
+
+実装に夢中になった頭は、自分の書いたコードを甘く採点しがちです。「ここは直したばかりだから大丈夫」というバイアスがかかる。人間の開発でも、自分のコードのレビューが難しいのと同じ構図です。
+
+<Callout>
+  <b>核心はここ。</b> 「生成した本人に自己批判させる」より、「**事情を知らない別の評価者に懐疑的に見させる**」方が、ずっと易しく・確実です。だから役割を分ける——これが <Term id="plan-generate-evaluate">3分離パターン</Term> の出発点です。
+</Callout>
+
+## §2 解決策＝関心の分離
+
+そこで、1つの大きな仕事を **3つの役割** に割ります。それぞれを独立した <Term id="subagent">サブエージェント</Term> にして、別々の <Term id="context-window">コンテキストウィンドウ</Term> で動かすのがポイントです。
+
+- **<Term id="planner">Planner</Term>（計画担当）** — 何を・なぜ作るかを決める
+- **<Term id="generator">Generator</Term>（生成担当）** — 計画に沿って、どう作るかを実装する
+- **<Term id="evaluator">Evaluator</Term>（評価担当）** — 第三者として成果物を検証する
+
+ソフトウェア設計で言う <Term id="single-responsibility">単一責務</Term> を、エージェントの単位に持ち込んだ形です。各役割が自分の仕事だけに集中できるので、判断がぶれにくくなります。
+
+## §3 3つの役割を一枚で
+
+3役割の入力・出力・重点を整理します。この表がこの章の地図です。
+
+| 役割 | 入力 | 出力 | 重点 |
+|---|---|---|---|
+| <Term id="planner">Planner</Term> | 要件（1〜4文） | 実装計画（md / json） | **What / Why**。技術詳細は決めすぎない |
+| <Term id="generator">Generator</Term> | 計画 | コード + テスト | **How**。機能ごとに <Term id="commit">commit</Term> しながら逐次実装 |
+| <Term id="evaluator">Evaluator</Term> | コード + 計画 | レビュー判定 | 事実ベース・第三者視点で検証 |
+
+ここで効いてくるのが「Planner は技術詳細を決めすぎない」という線引きです。**What/Why は Planner、How は Generator** と分けることで、お互いの領分を侵さず、計画が硬すぎて実装が窮屈になる事態を避けられます。
+
+## §4 つなぎ方は「ファイル」
+
+3つの役割を、どう繋ぐか。ここが設計のキモです。答えは——**会話で繋がず、ファイル（md / json）で繋ぐ**。
+
+各エージェントはメイン会話を覗きません。Planner は計画ファイルを書き、Generator はそのファイルを読んで実装し、Evaluator はコードと計画ファイルを突き合わせて判定ファイルを書く。やり取りの接点を **成果物ファイルだけ** に絞ります。
+
+<Callout>
+  これを <Term id="loose-coupling">疎結合（loose coupling）</Term> と呼びます。互いの内部（長い会話履歴）に踏み込まないので、文脈が混ざらず、関係も単純になります。「次の人に渡す引き継ぎ書だけ共有する」イメージです。
+</Callout>
+
+## §5 ファイル経由がトークンを節約する理由
+
+疎結合には、品質以外にもうひとつ大きな利点があります。**<Term id="token">トークン</Term> 消費が減る** ことです。
+
+もし3役割が1つの会話を共有していたら、評価担当は「計画の議論」も「実装の試行錯誤のログ」も全部読まされます。横道の情報まで抱え込み、<Term id="context-pollution">コンテキスト汚染</Term> が起きる。ファイル経由なら、評価担当が受け取るのは **最終成果物（コード＋計画）だけ**。読む量が一気に減ります。
+
+<Callout type="warn">
+  ある実践記事では、単一エージェントに比べてトークン消費が **1/4〜1/5 になった** という報告があります。ただしこれは<b>個人の事例値</b>で、タスクや書き方で大きく変わります。「桁で効くことがある」程度に捉えてください。
+</Callout>
+
+## §6 全体の流れ（フロー）
+
+役割と繋ぎ方が分かったら、実際に回る順番を見ます。一本道ではなく、評価結果で分岐します。
+
+1. **Planner** が計画を書く
+2. **ユーザーが計画を確認**（ここで方向性を承認）
+3. **Generator** が実装（自己テスト＋機能ごとに <Term id="commit">commit</Term>）
+4. **Evaluator** が判定（`PASS` / `NEEDS_REVISION` / `FAIL`）
+5. 必要なときだけ Generator が再実行 → 再評価
+
+ポイントは **手順2の「ユーザー確認」** です。実装に入る前に計画を人がレビューする。ここで方向違いを潰せば、後工程の手戻りとコストを大きく減らせます。
+
+## §7 評価の3判定と「最大3回」ルール
+
+Evaluator が返すのは、3つの判定のいずれかです。
+
+- **`PASS`** — 計画を満たした。完了。
+- **`NEEDS_REVISION`** — 惜しい。具体的な指摘を添えて Generator に差し戻す。
+- **`FAIL`** — 計画自体に無理がある等。Planner まで戻す。
+
+<Callout type="warn">
+  <b>無限ループを避ける歯止めが重要です。</b> 「Generator 実装 → Evaluator 差し戻し」の往復は <b>最大3回まで</b>。それでも `PASS` しなければ、機械に粘らせず<b>人間が判断</b>します。AI 同士で延々と直し合わせると、コストだけ膨らんで前に進みません。
+</Callout>
+
+## §8 モデルの使い分け
+
+3役割それぞれに、どの <Term id="models">モデル</Term> を当てるか。仕事の性質に合わせます。
+
+| 役割 | おすすめモデル | 理由 |
+|---|---|---|
+| <Term id="planner">Planner</Term> | Opus または Sonnet | 構想・設計判断は賢さが効く |
+| <Term id="generator">Generator</Term> | Sonnet | 実装はバランス型で十分まわる |
+| <Term id="evaluator">Evaluator</Term> | Sonnet | 事実チェックはバランス型で堅実に |
+
+2-5 で学んだ <Term id="model-routing">モデルルーティング</Term> の実践編です。「難所は賢いモデル、手を動かすところはバランス型」という配分。サブエージェントのフロントマターに `model:` を書くだけで指定でき、<Term id="model-inherit">model: inherit</Term>（呼び出し元と同じ）にしない判断がここで活きます。
+
+## §9 評価精度を上げるコツ①——二値で問う
+
+Evaluator は、この3分離の心臓部です。ここが甘いと全体が崩れるので、効かせるコツを2つに分けて押さえます。まず1つめ。
+
+**判定は「満たす / 満たさない」の2択で問う**——<Term id="binary-eval">二値評価</Term> です。「品質は何点?」のような点数付けは、評価者の気分でぶれます。チェックリストにして1項目ずつ Yes/No で潰す方が、判定が安定します。
+
+<CodeBlock title="評価チェックリストの例" badge="例">
+<span class="line"><span class="sx-com"># 二値で問う（各項目 PASS / FAIL）</span></span>
+<span class="line"><span class="sx-key">[ ]</span> 計画の機能要件をすべて満たしているか</span>
+<span class="line"><span class="sx-key">[ ]</span> 既存テストが通り、新規テストが追加されているか</span>
+<span class="line"><span class="sx-key">[ ]</span> エラー処理が要件どおり実装されているか</span>
+</CodeBlock>
+
+## §10 評価精度を上げるコツ②——根拠と撤回禁止
+
+2つめ。指摘には **必ず根拠を付けさせる**——<b>ファイルパス + 行番号</b> で「どこが」問題かを示させます。「なんとなく品質が低い」のような曖昧な指摘を封じ、Generator が直せる形にするためです。
+
+<CodeBlock title="根拠の付け方" badge="例">
+<span class="line"><span class="sx-com"># NG: 曖昧で直せない</span></span>
+<span class="line"><span class="sx-dim">エラー処理が不十分です</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-com"># OK: 場所が特定でき、直せる</span></span>
+<span class="line"><span class="sx-fn">src/api/user.ts:42</span> <span class="sx-str">— 例外を握りつぶしている。計画§3の要件未達</span></span>
+</CodeBlock>
+
+もうひとつ、Evaluator のシステムプロンプトに **「一度出した指摘を取り下げない」** と書いておきます。評価者が Generator の反論に流されて妥協すると、せっかくの第三者視点が骨抜きになるからです。
+
+## §11 ターミナルで回す / デスクトップで回す
+
+ここまでの設計を、実際に動かすときの見え方はモードで変わります。
+
+<ModeBlock mode="terminal">
+### ターミナル版での回し方
+
+サブエージェントは 3-3 で作った要領で `.claude/agents/` に3枚（planner / generator / evaluator）置きます。フロントマターの `model:` と `tools:` を役割ごとに変えるのを忘れずに。回す流れは、計画ファイルの生成 → 確認 → 実装 → 評価判定ファイルの確認、を **手動またはコマンドで** 進めます。差し戻しのループも自分で「もう一周」と指示します。
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+### デスクトップアプリ版での回し方
+
+同じく3枚のサブエージェントを用意します（GUI から作っても、生成されるファイルは同じです）。デスクトップ版の強みは、**複数セッション／エージェントの進捗を並列で可視化** できること。Planner・Generator・Evaluator の動きや、生成された計画・判定ファイルの差分を <Term id="agent-view">agent view</Term> 的に眺めながら回せるので、どの役割でいま詰まっているかが一目で分かります。
+</ModeBlock>
+
+## §12 役割ごとのフロントマター早見
+
+3枚のサブエージェントの違いは、ほぼフロントマターに出ます。コピペの足場として、要点だけ並べます（本文＝システムプロンプトは役割の振る舞いを書く)。
+
+<CodeBlock title="3役割のフロントマター骨子" badge="設定">
+<span class="line"><span class="sx-com"># planner — 読むだけ。計画を書く</span></span>
+<span class="line"><span class="sx-key">tools:</span> Read, Grep, Glob   <span class="sx-key">model:</span> opus</span>
+<span class="line"> </span>
+<span class="line"><span class="sx-com"># generator — 実装する。編集・実行・commit</span></span>
+<span class="line"><span class="sx-key">tools:</span> Read, Edit, Bash    <span class="sx-key">model:</span> sonnet</span>
+<span class="line"> </span>
+<span class="line"><span class="sx-com"># evaluator — 検証する。書き換えはさせない</span></span>
+<span class="line"><span class="sx-key">tools:</span> Read, Grep, Bash    <span class="sx-key">model:</span> sonnet</span>
+</CodeBlock>
+
+Evaluator に編集ツール（Edit）を渡さないのがコツです。<Term id="least-privilege">最小権限</Term> の考え方で、**評価者には直す権限を与えない**。直すのは Generator の仕事、と役割をツール権限でも強制します。
+
+## §13 コスト注意——いつ使い、いつ使わないか
+
+最後に、いちばん大事な現実の話。3分離は強力ですが、**3つのエージェントを動かす以上コストはかさみます**。
+
+<Callout type="warn">
+  ある事例では、単一エージェントと3分離で <b>体感コストが約20倍</b> という記述もあります。これは<b>未確認の事例値</b>で鵜呑みにはできませんが、「分離すると確実に高くつく」方向は事実です。何にでも使う道具ではありません。
+</Callout>
+
+使い分けの目安はこうです。
+
+- **単発・小さなリファクタ** → 単一エージェントで十分。3分離は過剰。
+- **本番に入る機能・品質が重要な実装** → 3分離の価値が出る。
+
+「品質のためにコストを払う価値があるか?」を毎回はかりにかけてください。
+
+## §14 この章のまとめ
+
+3分離パターンの要点を、もう一度だけ。
+
+- **動機** — 計画・実装・評価が干渉すると品質が落ちる。**独立した評価者に懐疑的に**見させる方が易しい。
+- **構造** — <Term id="planner">Planner</Term>（What/Why）/ <Term id="generator">Generator</Term>（How）/ <Term id="evaluator">Evaluator</Term>（検証）の <Term id="single-responsibility">単一責務</Term>。
+- **繋ぎ方** — 会話でなく **ファイルで <Term id="loose-coupling">疎結合</Term>**。トークンも節約。
+- **回し方** — 計画→**ユーザー確認**→実装→評価、差し戻しは **最大3回** で人間判断。
+- **質を上げる** — <Term id="binary-eval">二値評価</Term> ＋ ファイルパス+行番号の根拠 ＋ 指摘の撤回禁止。
+- **使いどころ** — コストがかさむので、**本番機能に絞って**使う。
+
+これが使いこなせれば、サブエージェントは「ただの便利機能」から「品質を作る仕組み」へ変わります。次章では、ここで出てきた CLAUDE.md・スキル・サブエージェントの **役割分担** を図で整理し、設計の迷いを消していきます。

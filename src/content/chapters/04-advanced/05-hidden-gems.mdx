@@ -1,0 +1,106 @@
+---
+title: 意外と知らない便利機能・裏技
+part: advanced
+order: 6
+level: 上級
+summary: 生産性をひと押し上げる小技を、ひとつずつ拾います。会話を汚さない横の質問、書きかけの退避、即シェル実行、長いプロンプトの外部エディタ作成、そして高速起動まで。多くはターミナル版の小技ですが、デスクトップ版の対応物も対で触れます。
+readingTime: 7
+updated: 2026-06-27
+---
+
+第4部もここまで来ると、知っているかどうかで効率が変わる小技がいくつもあります。この章では、毎日の往復をほんの少し軽くする機能を、ひとつずつ拾っていきます。
+
+<Callout>
+  ここで扱う小技は <b>ほとんどがターミナル版</b> のものです。デスクトップアプリ版に対応する操作があるものは各所で対にして示しますが、CLI 主体の小技はその旨を明記します。右上のトグルで自分の環境を選んでお読みください。
+</Callout>
+
+<Callout type="warn">
+  <b>この領域は版で変わります。</b> ショートカットやオプションは <Term id="auto-update">自動更新</Term> で割り当てが見直されることがあります。「効かない」と感じたら、まず <code class="inline">/help</code> で最新のキー一覧を確認してください。本章は 2026-06 時点のスナップショットです。
+
+</Callout>
+
+## §1 /btw — 会話を汚さず横に聞く
+
+作業の途中で「ところでこのコマンドの意味は?」とちょっと聞きたくなることがあります。普通に聞くと、その質問と回答が本筋の履歴に残り、<Term id="context">コンテキスト</Term> が散らかります。
+
+そこで <Term id="btw">/btw</Term> です。`/btw` に続けて質問すると、本流の会話を汚さずに横で答えてくれます。やり取りが履歴に積もらないので、文脈を保ったまま気軽に脱線できます。
+
+<CodeBlock title="zsh — claude" badge="CLI">
+<span class="line"><span class="sx-com"># 本筋を中断せず、横でさっと質問する</span></span>
+<span class="line"><span class="prompt cy">&gt;</span> <span class="sx-key">/btw</span> <span class="sx-str">git rebase と merge の違いを一言で</span></span>
+</CodeBlock>
+
+## §2 !コマンド — 推論を挟まず即シェル実行
+
+決まったシェルコマンドをサッと打ちたいだけなのに、毎回エージェントに頼むと推論が入ってまどろっこしい——そんなときは <Term id="bang-command">!コマンド</Term> です。
+
+行頭に `!` を付けて入力すると、Claude の推論を挟まずに、そのままシェルコマンドが即実行されます。`!git status` や `!npm test` のように、結果だけ手早く見たいときに速いです。
+
+<CodeBlock title="zsh — claude" badge="CLI">
+<span class="line"><span class="sx-com"># 行頭の ! でそのまま即シェル実行</span></span>
+<span class="line"><span class="prompt cy">&gt;</span> <span class="sx-key">!</span><span class="sx-flag">git status</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">  On branch main / nothing to commit…</span></span>
+</CodeBlock>
+
+これは **ターミナル版の入力テク** です。決まり切ったコマンドは `!` で、判断が要る作業は通常の指示で、と使い分けると往復が締まります。
+
+## §3 Ctrl+S — 書きかけを退避する
+
+長い指示を入力している最中に、急ぎの別の用が割り込んでくることがあります。打ちかけを消したくないけれど、先にそちらを片付けたい——そんなときに `Ctrl+S` が効きます。
+
+書きかけのプロンプトをいったん退避させ、割り込みの操作を済ませたあとで書きかけに戻れます。せっかく組み立てた長文を捨てずに済むので、思考を途切れさせません。
+
+<Callout>
+  <b>これはターミナル版の小技です。</b> デスクトップアプリ版では入力欄の下書きが画面にそのまま残るため、明示的な退避操作は基本的に要りません。書きかけは入力欄に置いたまま、別の操作へ移れます。
+</Callout>
+
+## §4 Ctrl+G — 外部エディタで長文を書く
+
+込み入った指示を一行ずつ入力欄で組み立てるのは骨が折れます。`Ctrl+G` を押すと、環境変数 `$EDITOR` で設定したお気に入りのエディタが開き、そこでプロンプトをじっくり書けます。
+
+複数行の仕様や、構造を整えた長い依頼を書くときに重宝します。普段使いのエディタの操作感そのままで推敲でき、保存して閉じれば内容がそのまま送られます。
+
+<CodeBlock title="zsh — エディタを指定しておく" badge="CLI">
+<span class="line"><span class="sx-com"># 例: VS Code を $EDITOR にする（待機オプション付き）</span></span>
+<span class="line"><span class="prompt">$</span> <span class="sx-key">export</span> EDITOR=<span class="sx-str">"code --wait"</span></span>
+</CodeBlock>
+
+これも **ターミナル版** の機能です。デスクトップ版は入力欄が広く複数行をそのまま扱えるため、外部エディタを呼ばなくても長文を組み立てられます。
+
+## §5 Ctrl+B — 長い処理を裏に回す
+
+時間のかかる処理を走らせている間、画面が占有されて別の作業ができないのはもったいない。`Ctrl+B` を押すと、その処理を <Term id="background-agent">バックグラウンドエージェント</Term> として裏に回し、手元では別の作業を続けられます。完了すると通知が来ます。
+
+<ModeBlock mode="terminal">
+ターミナル版では `Ctrl+B` で長い処理を背後へ送ります。前章までで触れた並列運用の、いちばん手軽な入口です。
+</ModeBlock>
+
+<ModeBlock mode="desktop">
+デスクトップアプリ版では、複数セッションを並べて走らせること自体が標準の使い方です。裏に回すというより、<b>もう一つセッションを開いて並行させる</b>感覚で、進捗は画面上で見比べられます。
+</ModeBlock>
+
+## §6 --safe-mode — カスタムを無効化して高速起動
+
+<Term id="hook">フック</Term> やプラグインを盛り込むと、起動時の初期化に時間がかかったり、設定同士が干渉したりすることがあります。そんなときは <Term id="safe-mode">--safe-mode</Term> です。
+
+このオプションを付けて起動すると、カスタムの初期化をスキップして素早く立ち上がります。「サッと開きたいだけ」のときに速く、さらに **設定の切り分け確認** にも使えます。
+
+<CodeBlock title="zsh — カスタム無効化で起動" badge="CLI">
+<span class="line"><span class="sx-com"># フック/プラグインの初期化を飛ばして起動</span></span>
+<span class="line"><span class="prompt">$</span> <span class="sx-key">claude</span> <span class="sx-flag">--safe-mode</span></span>
+</CodeBlock>
+
+<Callout>
+  <b>切り分けの定石。</b> 「最近 Claude の挙動がおかしい」と感じたら、いちど <code class="inline">--safe-mode</code> で起動してみてください。<b>素の状態で直る</b>なら、原因は自分のフックやプラグイン側にある、と当たりがつきます。これは設定ファイルベースで効くため、起点はターミナルですが切り分けの考え方は両モード共通です。
+</Callout>
+
+## §7 小技は「引き出し」に入れておく
+
+ここまでの小技は、すべてを暗記する必要はありません。「会話を汚さず聞きたい」「書きかけを残したい」「サッと起動したい」といった **困りごとが出たときに思い出せる** 程度で十分です。
+
+<Callout type="warn">
+  <b>最新版で確かめる癖を。</b> 本章のショートカットやオプションは版によって変わります。手元で効かないときは <code class="inline">/help</code> と公式の What's new を見るのが、いちばん確実な答え合わせです。
+</Callout>
+
+便利機能はあくまで土台を速くする道具です。次の第5部では、ここまでの運用を **チーム・CI・SDK** に広げ、Claude Code を組織の仕組みに組み込んでいきます。

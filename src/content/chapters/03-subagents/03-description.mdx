@@ -1,0 +1,75 @@
+---
+title: description で「いつ呼ぶか」を設計する
+part: subagents
+order: 4
+level: 中級
+summary: サブエージェントは作って終わりではありません。鍵は description——ここに「いつ・何のために使うか」を具体的に書くと、Claude が自分で適切な相手へ仕事を振り分けます。狙い通りに呼ばれる説明文の書き方を学びます。
+readingTime: 6
+updated: 2026-06-27
+---
+
+前章で作ったサブエージェントは、置いておくだけでは出番が来ません。Claude が「このタスクは誰に任せるべきか」を判断する材料が要ります。その材料が <Term id="yaml-frontmatter">フロントマター</Term> の <Term id="description">description</Term> です。本章では、狙ったときに狙った相手が呼ばれるための説明文の書き方を学びます。
+
+<Callout>
+  覚えておきたいのは一点だけ。<b>サブエージェントの精度は、本文(システムプロンプト)より先に <code class="inline">description</code> で決まる</b>。どんなに本文を作り込んでも、呼ばれなければ働けません。
+</Callout>
+
+## §1 Claude は description を見て振り分ける
+
+サブエージェントの呼ばれ方には二つあります。ひとつは、あなたが名前を指定して直接呼ぶ **手動指名**。もうひとつが、Claude がタスクに応じて自分で選ぶ <Term id="auto-delegation">自動委譲</Term> です。
+
+自動委譲のとき、Claude は登録された各サブエージェントの `description` だけを読み比べ、いま手元のタスクに最も合うものへ仕事を渡します。本文(システムプロンプト)は **選ばれた後** に初めて効きます。
+
+<Callout type="warn">
+  つまり <code class="inline">description</code> が曖昧だと、<b>そもそも候補に挙がらない</b>か、見当違いの場面で呼ばれます。「呼ばれない」「変なときに呼ばれる」の大半は、本文ではなく description の問題です。
+</Callout>
+
+## §2 良い description の三要素
+
+合致判定を効かせるコツは、**トリガー語・対象・場面** の三つを具体的に書くことです。一般語だけの説明は、ほかのエージェントと区別がつきません。
+
+| 要素 | 書くこと | 例 |
+|---|---|---|
+| トリガー語 | どんな依頼で呼ぶか | 「レビューして」「テストを実行」 |
+| 対象 | 何に対して働くか | 変更差分、`*.ts`、認証まわり |
+| 場面 | いつ使う/使わないか | コミット前。新規実装には使わない |
+
+三つを一文に織り込むと、判定がぶれにくくなります。
+
+## §3 ビフォー / アフター
+
+同じ code-reviewer でも、description 次第で呼ばれ方が変わります。曖昧な例と具体的な例を並べます。
+
+<CodeBlock title="description の良し悪し" badge="YAML">
+<span class="line"><span class="sx-com"># NG: 一般語だけ。いつ呼ぶか判断できない</span></span>
+<span class="line"><span class="sx-key">description</span>: <span class="sx-str">コードをレビューする</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-com"># OK: トリガー語・対象・場面が揃っている</span></span>
+<span class="line"><span class="sx-key">description</span>: <span class="sx-str">コミット前の変更差分をレビューする。「レビューして」</span></span>
+<span class="line">  <span class="sx-str">と頼まれた時や編集が一段落した時に使う。新規の</span></span>
+<span class="line">  <span class="sx-str">大規模実装そのものには使わない。</span></span>
+</CodeBlock>
+
+下の例なら、Claude は「編集が終わってレビューの場面だ」と判断しやすく、狙い通り呼ばれます。
+
+## §4 自動委譲を後押しする一言
+
+公式テンプレートでよく使われる手があります。description に **「Use proactively（積極的に使うこと）」「MUST BE USED（必ず使うこと）」** のような一言を添えると、Claude がそのエージェントを呼ぶ判断に傾きやすくなります。
+
+<CodeBlock title="呼ばれやすさを上げる定型句" badge="YAML">
+<span class="line"><span class="sx-key">description</span>: <span class="sx-str">テストを実行し失敗を要約する test-runner。</span></span>
+<span class="line">  <span class="sx-str">コード変更の直後に MUST BE USED（必ず使うこと）。</span></span>
+</CodeBlock>
+
+<Callout>
+  強い語は <b>本当に毎回呼びたいものだけ</b>に。何にでも付けると優先順位が潰れ、かえって狙いがぼやけます。
+</Callout>
+
+## §5 手動指名という保険
+
+自動委譲が思い通りに効かないときは、名前で直接呼べば確実です。「○○ を使って△△して」と頼めば、Claude はそのサブエージェントを指名して動かします。
+
+- **自動委譲** — 普段使い。description を磨いて任せる。
+- **手動指名** — 確実に呼びたい時、検証したい時の保険。
+
+まずは手動指名で動作を確かめ、その手応えを見ながら description を調整していくと、自動委譲の精度が安定します。次章では、本サイト最大の目玉である「計画・生成・評価」の3分離パターンに進みます。

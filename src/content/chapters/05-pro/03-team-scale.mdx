@@ -1,0 +1,120 @@
+---
+title: 大規模リポジトリ & チーム共有運用
+part: pro
+order: 4
+level: プロ
+summary: モノレポで必要なパスだけを読ませ、Dev Container と Sandbox で前提を揃え、.claude/ を git に乗せてチーム全員に同じ設定を行き渡らせます。両モードの利用者が混在する前提で、共通の土台を設計します。
+readingTime: 9
+updated: 2026-06-27
+---
+
+ここまでは個人の運用が中心でした。この章で視点を上げます。**何十万行もある大規模リポジトリ**で Claude を快適に動かし、さらに**チーム全員に同じ設定を行き渡らせる**——その土台づくりがテーマです。
+
+<Callout>
+  <b>この章はモードによる差がありません。</b> 扱うのは運用の設計で、設定はファイルとして全サーフェスに共通して効きます。むしろ前提は逆で、<b>ターミナル版とデスクトップアプリ版の利用者が同じチームに混在する</b>なかで、どちらでも効く 1 つの土台を作るのがゴールです。
+</Callout>
+
+## §1 大規模・チームで何が問題になるか
+
+規模が大きくなると、個人運用では見えなかった壁が出ます。整理すると二つです。
+
+- **大規模リポジトリの壁** — <Term id="monorepo">モノレポ</Term> のように巨大だと、関係ないコードまで <Term id="context-window">コンテキスト</Term> に入り、遅く・高くなる。手元ごとに環境差があると挙動も揺れる。
+- **チーム共有の壁** — 各自が思い思いの設定で使うと、品質も安全基準もバラバラ。「自分の環境では動く」が起きる。
+
+この章は前者を **sparse worktree / Dev Container / Sandbox** で、後者を **`.claude/` を git で共有する**ことで解いていきます。
+
+## §2 sparse worktree で必要な部分だけ読ませる
+
+モノレポ全体を抱え込ませる必要はありません。<Term id="worktree">worktree</Term> でブランチを別フォルダーに分離しつつ、<Term id="sparse-paths">worktree.sparsePaths</Term> で**読み込むパスを絞り込みます**。
+
+<CodeBlock title=".claude/settings.json — 必要パスだけに絞る" badge="設定">
+<span class="line"><span class="sx-key">&#123;</span></span>
+<span class="line">  <span class="sx-str">"worktree"</span>: <span class="sx-key">&#123;</span></span>
+<span class="line">    <span class="sx-str">"sparsePaths"</span>: [</span>
+<span class="line">      <span class="sx-str">"packages/web"</span>,</span>
+<span class="line">      <span class="sx-str">"packages/shared"</span></span>
+<span class="line">    ]</span>
+<span class="line">  <span class="sx-key">&#125;</span></span>
+<span class="line"><span class="sx-key">&#125;</span></span>
+</CodeBlock>
+
+こうすると、今いじっているパッケージとその依存だけが視界に入ります。**コンテキストもコストも抑えられ**、巨大リポジトリでも応答が軽くなります。「全部見せる」ではなく「**いま要る分だけ見せる**」が大規模運用の基本姿勢です。
+
+## §3 Dev Container で環境を揃える
+
+「自分の環境では動く」を消すには、環境そのものを定義してしまうのが早道です。<Term id="dev-container">Dev Container</Term> は開発環境をコンテナとして記述し、**誰の手元でも同じ前提**を再現します。
+
+| 揃うもの | 効果 |
+|---|---|
+| 言語・ツールのバージョン | 「自分だけ動く/動かない」が消える |
+| 依存パッケージ | セットアップ手順を Claude に教え直さずに済む |
+| Claude の前提 | チーム全員が同じ土台で動かせる |
+
+定義をリポジトリに置いておけば、新しく入った人も clone して開くだけで同じ環境に乗れます。Claude にとっても「毎回ビルド手順を探る」手間が減り、挙動が安定します。
+
+## §4 Sandbox で安全に実行する
+
+自動化を進めるほど、「危険なコマンドが万一走ったら」が怖くなります。<Term id="sandbox">Sandbox</Term> は実行を**隔離された領域に閉じ込める**仕組みで、本体環境への影響を抑えます。
+
+<Callout>
+  Sandbox の隔離と、第2部で学んだ <Term id="permissions">権限設定</Term>(allow / deny / ask)は<b>役割が違います</b>。権限設定が「そもそも何をさせるか」の線引きなら、Sandbox は「**走ってしまっても本体に波及させない**」最後の壁。両方を重ねると、自動実行の安全性が一段上がります。
+</Callout>
+
+大規模・チームでは自動実行の機会も増えます。<Term id="least-privilege">最小権限</Term> と Sandbox を併用し、「事故が起きにくく、起きても被害が小さい」状態を作っておくのがプロの設計です。
+
+## §5 チーム共有の核 — .claude を git に乗せる
+
+ここからが後半の主役です。チーム共有の答えはシンプルで、**設定を <Term id="dot-claude">.claude フォルダ</Term> に置いて git にコミットする**だけ。clone した全員が、同じ Claude の振る舞いを手に入れます。
+
+| 共有するもの(git に入れる) | 何が揃うか |
+|---|---|
+| `.claude/settings.json` | 権限・モデル・フックの方針 |
+| `.claude/agents/` | <Term id="subagent">サブエージェント</Term> の顔ぶれ |
+| `.claude/commands/` `.claude/skills/` | <Term id="custom-slash-command">カスタムコマンド</Term> / スキル |
+
+「レビュー観点」「危険コマンドの `deny`」「`/デプロイ前チェック` のような定型手順」を、**口頭の申し送りではなくリポジトリで配る**。これがチーム運用の土台です。
+
+## §6 共有する / しないの線引き
+
+なんでも git に入れてよいわけではありません。**チームで揃えたいものは入れ、個人や秘密のものは外す**——原則はこれだけです。
+
+| 入れる(共有) | 入れない(個人・秘密) |
+|---|---|
+| `settings.json`(チーム方針) | `settings.local.json`(自分だけの上書き) |
+| `agents/` `commands/` `skills/` | 認証情報・トークンの類 |
+| 機密ファイルの `deny` ルール | 個人の好み・一時的な許可 |
+
+<Callout type="warn">
+  <b>個人設定を共有側に書かない。</b> <code class="inline">.claude/settings.json</code> に自分だけの許可を書くと、全員に効いてしまいます。「自分だけ」は必ず <code class="inline">.claude/settings.local.json</code> へ。守りの <code class="inline">deny</code> は逆に共有側に書いて全員を守るのが定石です。
+</Callout>
+
+## §7 両モード混在チームの設定設計
+
+チームにはターミナル版の人もデスクトップアプリ版の人もいます。ここで効いてくるのが、本サイトが繰り返してきた事実——**設定は全サーフェスで共通して効く**、です。
+
+- `.claude/settings.json` の権限・<Term id="hook">フック</Term>は、どちらのモードでも同じく作用する。
+- `.claude/agents/` のサブエージェントは、ターミナルでもデスクトップでも同じ顔ぶれで呼べる。
+- デスクトップで GUI から作った設定も、同じファイルなのでターミナル派にそのまま届く。
+
+<Callout>
+  だから設計の指針は <b>「入り口を問わず、ファイルで揃える」</b>。誰がどのモードで開いても同じ振る舞いになるよう、土台を <code class="inline">.claude/</code> に集約しておけば、モードの混在は問題になりません。
+</Callout>
+
+## §8 エンタープライズ — 統制と監視
+
+組織規模になると、「全員が勝手に設定を変えられる」では困る場面が出ます。ここは**統制(<Term id="governance">ガバナンス</Term>)**の領域です。
+
+- **server-managed settings** — 管理者が組織として設定を一元管理し、各メンバーの手元設定より優先させられる。安全基準を組織のルールとして固定できます。
+- **<Term id="opentelemetry">OpenTelemetry</Term> 監視** — 利用状況(メトリクスやログ)を業界標準の形式で集め、誰がどれだけ使っているか・どこで詰まっているかを可視化できます。
+
+個人運用の「便利」から、組織運用の「安全に・統制して・見える化して」へ。**規模が上がるほど、自由度より一貫性が価値になる**——これがエンタープライズ運用の勘どころです。
+
+## §9 この章のまとめ
+
+大規模とチーム、二つの壁をこう越えました。
+
+- **大規模** — sparse worktree で必要パスだけ、Dev Container で環境を統一、Sandbox で安全に実行。
+- **チーム** — `.claude/` を git に乗せて全員に配り、共有/個人の線引きを守り、両モード混在でも 1 つの土台で揃える。
+- **組織** — server-managed settings と OpenTelemetry で、統制と可視化を効かせる。
+
+土台が揃えば、次に気になるのは「コストと権限の事故をどう防ぐか」です。自動化とチーム運用を勧めた以上の責任として、次章では**課金とガバナンス**を正面から扱います。

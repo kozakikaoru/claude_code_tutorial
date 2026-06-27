@@ -1,0 +1,132 @@
+---
+title: ハイブリッド運用 — ある開発者の1日
+part: recipes
+order: 3
+level: 上級
+summary: 朝はスマホ、昼はデスクトップ、夜はターミナル——1つの作業を場面ごとに最適な入り口へ渡していく。サーフェス間移動の機能を「1日の働き方」のストーリーで体験します。
+readingTime: 8
+updated: 2026-06-27
+---
+
+第4部で <Term id="teleport">--teleport</Term> や <Term id="dispatch">Dispatch</Term> といったサーフェス間移動の機能を1つずつ見てきました。この章はそれらを**バラバラの機能としてではなく、1日の働き方としてつなげて**みせます。
+
+主人公はアプリ開発者の「さき」さん。同じ1つのタスク——「ログイン画面のバリデーションを直す」——が、朝・昼・夜で別々の入り口を渡り歩いていきます。これが <Term id="hybrid-workflow">ハイブリッド運用</Term> です。
+
+<Callout>
+  <b>この章は読み物です。</b> 各場面の冒頭に【起点モード】を明記します。手を動かすより、「自分ならどこで何をするか」を想像しながら読んでください。
+</Callout>
+
+## §1 朝 7:40 — 通勤電車でスマホから投げる
+
+【起点: スマホ】通勤電車の中。さきさんは昨夜のうちに気づいていた「ログイン画面のバリデーションが緩い」問題を、忘れないうちに投げておきます。
+
+ここで使うのが <Term id="dispatch">Dispatch</Term>。スマホからタスクの依頼だけを送り、**実際のセッションは会社のデスクトップ側で開かせる**機能です。電車の中では結果を待たず、依頼を済ませるだけ。
+
+<CodeBlock title="スマホ — Claude アプリ" badge="スマホ">
+<span class="line"><span class="sx-com"># Dispatch でタスクだけ先に投げる</span></span>
+<span class="line"><span class="prompt cy">あなた</span>  <span class="sx-str">ログイン画面のバリデーションを見直して。</span></span>
+<span class="line"><span class="sx-dim">        メール形式チェックと空欄チェックが甘い。</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">  ⎿ デスクトップ(会社のMac)でセッションを開きます…</span></span>
+</CodeBlock>
+
+依頼はデスクトップに届き、出社する頃には下調べが進んでいる——そういう段取りです。
+
+## §2 朝 9:05 — 会社のデスクトップで受け取る
+
+【起点: デスクトップ】出社してアプリを開くと、電車で投げた依頼が**すでにセッションとして立ち上がっています**。Claude はリポジトリを読み、該当ファイルの当たりを付けて待っていました。
+
+<Term id="desktop">デスクトップアプリ</Term> の良さは、ここからの**視覚的な確認**です。さきさんはまず計画だけ見たいので、<Term id="plan-mode">プランモード</Term> で「何をどう直すつもりか」を出させます。
+
+<CodeBlock title="デスクトップ — セッション" badge="デスクトップ">
+<span class="line"><span class="prompt">Claude</span>  <span class="sx-fn">読み取り</span> <span class="sx-flag">src/auth/LoginForm.tsx</span></span>
+<span class="line"><span class="sx-dim">        </span><span class="sx-fn">計画</span>   <span class="sx-str">バリデーション3点を追加(下記)</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">        1. メール形式の正規表現チェック</span></span>
+<span class="line"><span class="sx-dim">        2. 空欄時のエラーメッセージ表示</span></span>
+<span class="line"><span class="sx-dim">        3. 送信ボタンの活性/非活性制御</span></span>
+</CodeBlock>
+
+計画は妥当。ここまで来ると、スマホで投げた一言が、もう具体的な作業計画に育っています。
+
+## §3 朝 9:20 — 差分ビューで承認する
+
+【起点: デスクトップ】計画に GO を出すと、Claude が編集を進めます。デスクトップの主戦場である <Term id="diff-view">差分ビュー</Term> で、変更前後を見比べながら承認していきます。
+
+<CodeBlock title="デスクトップ — 差分ビュー" badge="デスクトップ">
+<span class="line"><span class="sx-com"># 変更が差分パネルに並ぶ</span></span>
+<span class="line"><span class="sx-fn">編集</span>  <span class="sx-flag">src/auth/LoginForm.tsx</span>  <span class="sx-str">+18 -3</span></span>
+<span class="line"><span class="sx-fn">編集</span>  <span class="sx-flag">src/auth/validate.ts</span>   <span class="sx-str">+12 -0</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">  ⎿ 差分を確認 → [承認] / [修正を依頼]</span></span>
+</CodeBlock>
+
+ターミナルなら差分はテキストで流れますが、デスクトップでは**横並びで色分け表示**され、目視レビューが速い。「ここは承認、ここは一言注文」を画面上で回せるのが、この時間帯にデスクトップを選ぶ理由です。
+
+<Callout>
+  <b>同じ作業でも、入り口で得意が違う。</b> 朝の「依頼」はスマホ、昼の「レビュー」はデスクトップ。中身のセッションは1つのまま、場面に合った入り口へ渡しているだけです。
+</Callout>
+
+## §4 昼 13:30 — 外出先からスマホで様子を見る
+
+【起点: スマホ】午後は客先へ外出。会社の Mac では、さきさんが承認したあとの仕上げ(テスト実行など)が続いています。気になるので、移動中にスマホから様子を見ます。
+
+ここで使うのが <Term id="remote-control">リモートコントロール</Term>。Dispatch が「投げて開かせる」のに対し、こちらは**手元のマシンで動いているセッションをそのまま継続操作**します。
+
+<CodeBlock title="スマホ — リモートコントロール" badge="スマホ">
+<span class="line"><span class="sx-com"># 会社のMacのセッションに外から接続</span></span>
+<span class="line"><span class="prompt">Claude</span>  <span class="sx-fn">実行</span>  <span class="sx-flag">npm test</span>  <span class="sx-str">→ 1 件 失敗</span></span>
+<span class="line"> </span>
+<span class="line"><span class="prompt cy">あなた</span>  <span class="sx-str">空欄チェックのテストも追加して直して</span></span>
+</CodeBlock>
+
+電車で投げ、会社で承認し、外出先から追加指示——**1つのセッションが移動に追随**してくる感覚です。
+
+## §5 夜 21:10 — 帰宅後、ターミナルに引き込む
+
+【起点: ターミナル】帰宅。腰を据えて仕上げと検証をしたいので、昼に外から触っていた続きを**手元のターミナルに引き込みます**。これが <Term id="teleport">--teleport</Term> です。
+
+<CodeBlock title="zsh — claude --teleport" badge="CLI">
+<span class="line"><span class="sx-com"># 進行中のセッションをターミナルへ引き込む</span></span>
+<span class="line"><span class="prompt">$</span> <span class="sx-key">claude</span> <span class="sx-flag">--teleport</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">  ⎿ 「ログイン画面のバリデーション」を再開しました</span></span>
+<span class="line"><span class="prompt cy">&gt;</span> <span class="caret" aria-hidden="true"></span></span>
+</CodeBlock>
+
+逆向きの移動もあります。ターミナルで進めていて「やっぱり差分を視覚的に見たい」となれば <Term id="desktop-command">/desktop</Term> でデスクトップへ渡せます。**行き来は双方向**で、そのとき欲しい入り口を選べばよいのです。
+
+## §6 夜 21:40 — ターミナルで締めのバッチをかける
+
+【起点: ターミナル】最後はターミナルの独壇場。ヘッドレス実行 <Term id="claude-p">claude -p</Term> で、締めの確認をワンショットのコマンドとして流します。対話画面を開かず、結果だけ受け取る使い方です。
+
+<CodeBlock title="zsh — claude -p" badge="CLI">
+<span class="line"><span class="sx-com"># 変更ファイルだけセキュリティ観点でざっと見てもらう</span></span>
+<span class="line"><span class="prompt">$</span> git diff main --name-only | claude <span class="sx-flag">-p</span> <span class="sx-str">"認証まわりの観点でレビュー"</span></span>
+<span class="line"> </span>
+<span class="line"><span class="sx-dim">  ⎿ LoginForm.tsx: 入力値のサニタイズは妥当。指摘なし</span></span>
+</CodeBlock>
+
+<Callout type="warn">
+  <b>自動化経由の利用は課金枠に注意。</b> `claude -p` などヘッドレス実行は、通常のサブスク枠とは別の<b>月次クレジット</b>を消費します(2026/6/15〜)。締めのバッチを増やしすぎないこと。詳しくは第5部で扱います。
+</Callout>
+
+そして「コミットして PR を作って」で <Term id="pull-request">プルリクエスト</Term> まで一気に。朝スマホで投げた一言が、夜には PR として着地しました。
+
+## §7 まとめ — 1つのセッションを、場面で渡す
+
+この1日を貫いていたのは、**セッションは1つのまま、入り口だけを場面に合わせて渡す**という発想です。<Term id="surface">サーフェス</Term> ごとに中身が分かれるのではなく、同じ作業が移動についてくる。
+
+| 時間帯 | 起点 | 機能 | 得意なこと |
+|---|---|---|---|
+| 朝 7:40 | スマホ | Dispatch | 移動中に依頼だけ先出し |
+| 朝 9:05〜 | デスクトップ | (受け取り) | プラン確認・差分の目視レビュー |
+| 昼 13:30 | スマホ | リモートコントロール | 外出先から進行中セッションを継続 |
+| 夜 21:10 | ターミナル | --teleport / /desktop | 手元へ引き込む・双方向に行き来 |
+| 夜 21:40 | ターミナル | claude -p | 締めのバッチ・PR 作成 |
+
+完璧に使い分ける必要はありません。まずは「スマホで投げてデスクトップで受ける」の1往復から試してみてください。それだけで、机に向かっていない時間も作業が前に進むようになります。
+
+<Callout>
+  <b>機能は版で変わります。</b> サーフェス間移動まわりは進化が速い領域です。コマンド名や挙動が本文と違っていたら、最新の公式情報で確認してください。
+</Callout>
