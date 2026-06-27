@@ -520,14 +520,24 @@ html.js .stepnav { display: flex; }
   .sidebar {
     position: fixed; top: 0; left: 0; z-index: 50;
     transform: translateX(-100%); transition: transform .3s cubic-bezier(.4,.02,.2,1);
-    box-shadow: 0 0 60px -10px #000;
+    /* ドロワーは可読性最優先: 背面を確実に隠す不透明な濃色にし、
+       環境依存で透けやすい backdrop-filter には頼らない（iOS 実機対策）。 */
+    background: linear-gradient(180deg, #202026, #17171b);
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+    border-right: 1px solid var(--rule);
+    box-shadow: 0 0 60px -6px #000, 4px 0 30px -12px #000;
+    /* 端末幅に追従しつつ広がりすぎない（狭い端末でも本文が少しのぞく） */
+    width: min(86vw, var(--sidebar-w));
+    flex-basis: min(86vw, var(--sidebar-w));
   }
   .sidebar.open { transform: translateX(0); }
   .hamburger { display: inline-flex; }
   .main { width: 100%; }
+  /* ドロワー展開中は背面（body）をスクロールロック（SidebarScript が付与） */
+  body.drawer-open { overflow: hidden; }
 }
 @media (max-width: 600px) {
-  body { font-size: 15.5px; }
+  body { font-size: 15px; line-height: 1.8; }
   .article { padding: 38px 20px 24px; }
   .mode-btn { min-width: 46px; padding: 8px 11px; }
   .mode-btn .lbl-lg { display: none; }
@@ -535,15 +545,52 @@ html.js .stepnav { display: flex; }
   .crumbs { display: none; }
   .pager { grid-template-columns: 1fr; }
   .term .pop { width: 240px; }
-  h1.title { font-size: 31px; }
   .blob { filter: blur(54px); }
   .done-hint { display: none; }
+
+  /* --- モバイル: 本文タイポを一段小さく（h1/lede/h2/h3 の clamp 下限と整合） --- */
+  /* h1.title は clamp(28px,7vw,52px) に委ねる（=狭い端末で素直に縮む）。 */
+  .article p, .article ul, .article ol { font-size: 14.5px; line-height: 1.78; }
+  .callout .ct { font-size: 13.5px; }
+  .glass-showcase h3 { font-size: 18px; }
+  .glass-showcase p { font-size: 12.5px; }
 
   /* ステップ送り: モバイルは前後ボタンの文字を畳んでアイコン主体に、中央はバー寄り */
   .stepnav { gap: 10px; padding: 10px 16px 16px; }
   .stepnav .nav-btn { padding: 8px 11px; }
   .stepnav .nav-btn .lbl { display: none; }
   .step-inner { padding-left: 20px; padding-right: 20px; }
+
+  /* ============================================================
+     表紙(step0)をモバイルで 1 画面に素直に収める引き締め。
+     各要素のフォント・余白・行間を圧縮し、ショーケースは小型化する。
+     JS 有効（1 枚化）時のアクティブ表紙にのみ効かせ、縦表示フォールバックは据え置き。
+     ============================================================ */
+  html.js .step[data-active] .step-cover .eyebrow { margin-bottom: 12px; font-size: 11px; }
+  html.js .step[data-active] .step-cover .title { font-size: clamp(25px, 8vw, 32px); line-height: 1.1; margin-bottom: 8px; }
+  html.js .step[data-active] .step-cover .lede { font-size: 14px; line-height: 1.62; margin-bottom: 8px; }
+  html.js .step[data-active] .step-cover .byline { margin-bottom: 12px; padding-top: 9px; gap: 6px 10px; font-size: 11.5px; }
+  html.js .step[data-active] .step-cover .progress { margin-bottom: 12px; }
+  /* 進捗バーをやや低く、読了ボタンを少しコンパクトに */
+  html.js .step[data-active] .step-cover .glass-meter { height: 20px; }
+  html.js .step[data-active] .step-cover .done-btn { padding: 5px 12px; font-size: 12px; }
+
+  /* 表紙直下に続くショーケース（GlassShowcase）はモバイルでは小さく・簡略に。
+     高さ最小値を下げ、余白・本文を詰めてチップまで 1 画面に収まりやすくする。 */
+  html.js .step[data-active] .step-cover ~ .glass-showcase {
+    margin: 14px 0 0; min-height: 0; padding: 16px 18px; border-radius: 14px;
+  }
+  html.js .step[data-active] .step-cover ~ .glass-showcase .sc-tag { margin-bottom: 6px; }
+  html.js .step[data-active] .step-cover ~ .glass-showcase h3 { font-size: 16px; margin-bottom: 6px; }
+  html.js .step[data-active] .step-cover ~ .glass-showcase p { font-size: 12px; line-height: 1.6; }
+  html.js .step[data-active] .step-cover ~ .glass-showcase .ripple-chip { margin-top: 11px; padding: 7px 13px; font-size: 12px; }
+}
+
+/* ごく狭い端末（iPhone mini/SE 等）はさらに一段圧縮 */
+@media (max-width: 380px) {
+  html.js .step[data-active] .step-cover .title { font-size: 24px; }
+  html.js .step[data-active] .step-cover .lede { font-size: 13.5px; }
+  html.js .step[data-active] .step-cover ~ .glass-showcase h3 { font-size: 15px; }
 }
 
 /* reduced-motion での accent 単色化（prose.css 側と整合）＋ ステップ送りアニメ停止 */

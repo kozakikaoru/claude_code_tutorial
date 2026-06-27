@@ -51,10 +51,27 @@
     var ham = document.getElementById('hamburger');
     var scrim = document.getElementById('scrim');
     if (!sb || !ham || !scrim) return;
-    function open() { sb.classList.add('open'); scrim.classList.add('show'); }
-    function close() { sb.classList.remove('open'); scrim.classList.remove('show'); }
+    function open() {
+      sb.classList.add('open'); scrim.classList.add('show');
+      document.body.classList.add('drawer-open'); // 背面スクロールロック
+      ham.setAttribute('aria-expanded', 'true');
+    }
+    function close() {
+      sb.classList.remove('open'); scrim.classList.remove('show');
+      document.body.classList.remove('drawer-open');
+      ham.setAttribute('aria-expanded', 'false');
+    }
+    ham.setAttribute('aria-expanded', 'false');
     ham.addEventListener('click', open);
     scrim.addEventListener('click', close);
     sb.querySelectorAll('.nav-link').forEach(function (a) { a.addEventListener('click', close); });
+    // Esc で閉じる
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && sb.classList.contains('open')) close();
+    });
+    // デスクトップ幅へ戻ったらドロワー状態を必ず解除（ロック残り防止）
+    window.addEventListener('resize', function () {
+      if (window.innerWidth > 980 && sb.classList.contains('open')) close();
+    });
   })();
 </script>
