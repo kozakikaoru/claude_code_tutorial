@@ -51,10 +51,23 @@
     var ham = document.getElementById('hamburger');
     var scrim = document.getElementById('scrim');
     if (!sb || !ham || !scrim) return;
+    // 現在地(is-active)がサイドバー内に見える位置へスクロール（毎回上から探さなくてよい）。
+    // サイドバー内スクロールのみ。ページ全体には影響しない。
+    function scrollToActive() {
+      var active = sb.querySelector('.nav-link.is-active');
+      if (!active) return;
+      var sbRect = sb.getBoundingClientRect();
+      var aRect = active.getBoundingClientRect();
+      sb.scrollTop += (aRect.top - sbRect.top) - sb.clientHeight / 2 + aRect.height / 2;
+    }
+    // 読み込み時（デスクトップの常時表示サイドバー）に現在地を見える位置へ。
+    if (document.readyState === 'complete') scrollToActive();
+    else window.addEventListener('load', scrollToActive);
     function open() {
       sb.classList.add('open'); scrim.classList.add('show');
       document.body.classList.add('drawer-open'); // 背面スクロールロック
       ham.setAttribute('aria-expanded', 'true');
+      scrollToActive(); // モバイル: 開いた瞬間に現在地から始める
     }
     function close() {
       sb.classList.remove('open'); scrim.classList.remove('show');
