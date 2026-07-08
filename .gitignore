@@ -21,3 +21,6 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# Claude Code のローカル設定（dev 起動設定など・個人環境依存）
+.claude/
