@@ -32,6 +32,6 @@ const hasSlot = Astro.slots.has('default');
   {hasSlot ? <slot /> : g.term}
   <span class="pop" role="tooltip">
     <span class="pop-term">{g.term}</span>
-    <p class="pop-def" set:html={defHtml}></p>
+    <span class="pop-def" set:html={defHtml}></span>
   </span>
 </span>
