@@ -101,7 +101,9 @@ body:not([data-mode]) span.mode-only.for-terminal { display: inline; }
   transform: translateX(-50%) translateY(8px) scale(.97);
   width: 308px; max-width: 78vw; z-index: 50;
   border-radius: 14px; padding: 15px 17px; text-align: left;
-  background: var(--glass-2);
+  /* 背景は不透明寄りにして背後の本文/表が透けないように（iOS や backdrop 弱環境でも可読）。
+     blur は対応環境での奥行きづけに残すが、可読性は不透明度側で担保する。 */
+  background: linear-gradient(165deg, rgba(42,42,50,.985), rgba(30,30,37,.99));
   -webkit-backdrop-filter: blur(20px) saturate(1.7) brightness(1.06);
   backdrop-filter: blur(20px) saturate(1.7) brightness(1.06);
   border: 1px solid var(--glass-edge);
@@ -126,8 +128,8 @@ body:not([data-mode]) span.mode-only.for-terminal { display: inline; }
 .term .pop::after {
   content: ""; position: absolute; top: 100%; left: 50%;
   transform: translateX(-50%) rotate(45deg);
-  width: 12px; height: 12px; margin-top: -6px; background: var(--glass-2);
-  -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  width: 12px; height: 12px; margin-top: -6px;
+  background: rgba(31,31,38,.99);
   border-right: 1px solid var(--glass-edge); border-bottom: 1px solid var(--glass-edge);
 }
 /* 画面端での簡易クランプ（R12） */
